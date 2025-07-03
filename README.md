@@ -9,7 +9,7 @@ This is the official repo for the paper
 
 ## Implementations
 
-The implementation of PRoPE is extremely simple and efficient. We provide standalone, single-file implementations for both JAX and PyTorch in [`prope_jax.py`](prope/jax.py) and [`prope_torch.py`](prope/torch.py). 
+The implementation of PRoPE is extremely simple and efficient. We provide standalone, single-file implementations for both JAX and PyTorch in [`prope/jax.py`](prope/jax.py) and [`prope/torch.py`](prope/torch.py). 
 
 ## Example of Usages
 
