@@ -6,19 +6,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <!-- HTML Meta Tags -->
-  <title>Projective Positional Encoding for Multi-view Transformers</title>
-  <meta name="description" content="Projective Positional Encoding for Multi-view Transformers" />
+  <title>Cameras as Relative Position Encoding</title>
+  <meta name="description" content="Cameras as Relative Position Encoding" />
   <meta property="og:image" content="./assets/teaser_static.png" />
   <meta property="og:image:type" content="image/png" />
   <meta property="og:image:width" content="1704" />
   <meta property="og:image:height" content="636" />
   <meta property="og:type" content="website" />
-  <!-- <meta property="og:url" content="https://<TODO:This should be the URL of the project>" /> -->
-  <meta property="og:title" content="Projective Positional Encoding for Multi-view Transformers" />
+  <meta property="og:url" content="https://www.liruilong.cn/prope/" />
+  <meta property="og:title" content="Cameras as Relative Position Encoding" />
   <meta property="og:description"
     content="We introduce PRoPE, a method for conditioning image tokens based on corresponding camera parameters in transformers for multiview vision tasks." />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Projective Positional Encoding for Multi-view Transformers" />
+  <meta name="twitter:title" content="Cameras as Relative Position Encoding" />
   <meta name="twitter:description"
     content="We introduce PRoPE, a method for conditioning image tokens based on corresponding camera parameters in transformers for multiview vision tasks." />
   <meta name="twitter:image" content="./assets/teaser_static.png" />
@@ -45,7 +45,7 @@
       background: rgba(0, 0, 0, 0.9);
       border: 1.6px solid rgba(222, 220, 245, 0.13);
       width: 100%;
-      max-width: 840px;
+      max-width: 1000px;
       margin: 0 auto;
       padding: 0 0 2.3rem 0;
     }
@@ -171,13 +171,12 @@
 
     .mtitle {
       margin-top: 0;
-      margin-bottom: 0;
       font-family: "Varela Round", sans-serif;
-      color: #4d4d4d;
-      font-size: 40px;
+      color: #000000;
+      font-size: 42px;
       line-height: 60px;
       font-weight: 600;
-      letter-spacing: 3px;
+      letter-spacing: 1px;
     }
 
     .msubtitle {
@@ -189,12 +188,14 @@
     }
 
     .mneurips {
+      margin-top: 10px;
+      margin-bottom: 10px;
       color: #aaa;
-      font-size: 20px;
+      font-size: 25px;
     }
 
     .mauthors {
-      font-size: 16px;
+      font-size: 20px;
       font-weight: 400;
       line-height: 15px;
     }
@@ -203,7 +204,15 @@
       margin-top: -12px;
       margin-bottom: 24px;
       font-family: "Open Sans", sans-serif;
-      font-size: 12px;
+      font-size: 20px;
+      line-height: 15px;
+    }
+
+    .mauthors_affiliation_reference {
+      margin-top: -12px;
+      margin-bottom: 24px;
+      font-family: "Open Sans", sans-serif;
+      font-size: 16px;
       line-height: 15px;
     }
 
@@ -239,7 +248,7 @@
 </head>
 
 <body>
-  <!-- <a href="https://<TODO:This should be the URL of the code>" class="github-corner"
+  <a href="https://github.com/liruilong940607/prope" class="github-corner"
     aria-label="View source on GitHub"><svg width="80" height="80" viewBox="0 0 250 250" style="
           fill: #151513;
           color: #fff;
@@ -255,7 +264,7 @@
       <path
         d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z"
         fill="#fff" class="octo-body"></path>
-    </svg></a> -->
+    </svg></a>
   <style>
     .github-corner:hover .octo-arm {
       animation: octocat-wave 560ms ease-in-out;
@@ -292,44 +301,86 @@
   <div class="container-fluid my-5 mx-auto" style="max-width: 840px">
     <div class="row">
       <!-- <h1 class="display-8 text-center msubtitle"></h1> -->
-      <h1 class="display-8 text-center mtitle">
-        Projective Positional Encoding for Multi-view Transformers
+      <h1 class="display-12 text-center mtitle">
+        Cameras as Relative Position Encoding
       </h1>
     </div>
 
-    <!-- <div class="row mt-2">
+    <div class="row mt-2">
       <div class="display-8 text-center mneurips">Arxiv 2025</div>
-    </div> -->
+    </div>
 
-    <!-- <div class="row text-center mt-3 mx-auto mauthors" style="max-width: 800px">
-      <div class="col-md-2">
-        <a href="https://<TODO:This should be the URL of the author>"> Author Name </a>
+    <div class="row text-center mt-3 mx-auto mauthors" style="max-width: 840px">
+      <div style="flex: 0 0 15%;">
+        <a href="https://www.liruilong.cn/"> Ruilong Li* </a>
       </div>
-    </div> -->
-
-    <!-- <div class="row text-center mt-3 mx-auto" style="max-width: 800px">
-      <div class="col-md-2 d-none d-md-block mauthors_affiliation">
-        TODO: Author Affiliation
+      <div style="flex: 0 0 15%;">
+        <a href="https://brentyi.github.io/"> Brent Yi* </a>
       </div>
-    </div> -->
+      <div style="flex: 0 0 17%;">
+        <a href="https://junchenliu77.github.io/"> Junchen Liu* </a>
+      </div>
+      <div style="flex: 0 0 15%;">
+        <a href="https://hangg7.com/"> Hang Gao </a>
+      </div>
+      <div style="flex: 0 0 13%;">
+        <a href="https://people.eecs.berkeley.edu/~yima/"> Yi Ma </a>
+      </div>
+      <div style="flex: 0 0 25%;">
+        <a href="https://people.eecs.berkeley.edu/~kanazawa/"> Angjoo Kanazawa </a>
+      </div>
+    </div>
 
-    <!-- <div class="row mt-2 text-center">
+    <div class="row text-center mt-2 mx-auto mauthors_affiliation_reference" style="max-width: 840px">
+      <div style="flex: 0 0 15%;">
+        [1, 2]
+      </div>
+      <div style="flex: 0 0 15%;">
+        [1]
+      </div>
+      <div style="flex: 0 0 17%;">
+        [1]
+      </div>
+      <div style="flex: 0 0 15%;">
+        [1]
+      </div>
+      <div style="flex: 0 0 13%;">
+        [1, 3]
+      </div>
+      <div style="flex: 0 0 25%;">
+        [1]
+      </div>
+    </div>
+
+    <div class="row text-center mt-0 mx-auto mauthors_affiliation" style="max-width: 840px">
+      <div style="flex: 0 0 33%;">
+        [1] UC Berkeley
+      </div>
+      <div style="flex: 0 0 33%;">
+        [2] NVIDIA
+      </div>
+      <div style="flex: 0 0 33%;">
+        [3] HKU
+      </div>
+    </div>
+
+    <div class="row mt-2 text-center">
       <a class="nav-link col-3"></a>
-      <a href="https://arxiv.org/abs/TODO:This should be the URL of the arxiv>" class="nav-link col-2">
+      <a href="https://arxiv.org/abs/TODO:This should be the URL of the arxiv>" class="nav-link col-3">
         <svg style="width: 48px; height: 48px" viewBox="0 0 24 24">
           <path fill="currentColor"
             d="M16 0H8C6.9 0 6 .9 6 2V18C6 19.1 6.9 20 8 20H20C21.1 20 22 19.1 22 18V6L16 0M20 18H8V2H15V7H20V18M4 4V22H20V24H4C2.9 24 2 23.1 2 22V4H4M10 10V12H18V10H10M10 14V16H15V14H10Z" />
         </svg><br />
         Paper
       </a>
-      <a href="https://github.com/TODO:This should be the URL of the code>" class="nav-link col-2">
+      <a href="https://github.com/liruilong940607/prope" class="nav-link col-3">
         <svg style="width: 48px; height: 48px" viewBox="0 0 24 24">
           <path fill="currentColor"
             d="M12,2A10,10 0 0,0 2,12C2,16.42 4.87,20.17 8.84,21.5C9.34,21.58 9.5,21.27 9.5,21C9.5,20.77 9.5,20.14 9.5,19.31C6.73,19.91 6.14,17.97 6.14,17.97C5.68,16.81 5.03,16.5 5.03,16.5C4.12,15.88 5.1,15.9 5.1,15.9C6.1,15.97 6.63,16.93 6.63,16.93C7.5,18.45 8.97,18 9.54,17.76C9.63,17.11 9.89,16.67 10.17,16.42C7.95,16.17 5.62,15.31 5.62,11.5C5.62,10.39 6,9.5 6.65,8.79C6.55,8.54 6.2,7.5 6.75,6.15C6.75,6.15 7.59,5.88 9.5,7.17C10.29,6.95 11.15,6.84 12,6.84C12.85,6.84 13.71,6.95 14.5,7.17C16.41,5.88 17.25,6.15 17.25,6.15C17.8,7.5 17.45,8.54 17.35,8.79C18,9.5 18.38,10.39 18.38,11.5C18.38,15.32 16.04,16.16 13.81,16.41C14.17,16.72 14.5,17.33 14.5,18.26C14.5,19.6 14.5,20.68 14.5,21C14.5,21.27 14.66,21.59 15.17,21.5C19.14,20.16 22,16.42 22,12A10,10 0 0,0 12,2Z" />
         </svg><br />
         &#60;/Code&#62;
       </a>
-      <a href="https://drive.google.com/drive/folders/TODO:This should be the URL of the data/checkpoints>"
+      <!-- <a href="https://drive.google.com/drive/folders/TODO:This should be the URL of the data/checkpoints>"
         class="nav-link col-2">
         <svg style="width: 48px; height: 48px" viewBox="0 0 24 24">
           <path fill="currentColor"
@@ -337,8 +388,8 @@
         </svg><br />
         Data
       </a>
-      <a class="nav-link col-3"></a>
-    </div> -->
+      <a class="nav-link col-3"></a> -->
+    </div>
 
     <div class="row">
       <div class="col-md-12 mt-2">
@@ -410,16 +461,10 @@
       <div class="row">
         <div class="col-md-12 mt-2">
           <center>
-            <!-- <video width="75%" autoplay muted playsinline>
-              <source src="assets/.mp4" type="video/mp4" />
-            </video> -->
             <img src="assets/placeholder_rpe.png" alt="teaser" style="width: 100%;">
           </center>
         </div>
       </div>
-      <!-- <p style="color: red;">
-        TODO: replace this placeholder image with a video.
-      </p> -->
     </div>
 
     <div class="my-5">
@@ -432,9 +477,6 @@
       <div class="row">
         <div class="col-md-12 mt-2">
           <center>
-            <!-- <video width="75%" autoplay muted playsinline>
-              <source src="assets/.mp4" type="video/mp4" />
-            </video> -->
             <img src="assets/formulation_pij.png" alt="teaser" style="width: 50%;">
           </center>
         </div>
@@ -617,7 +659,6 @@
           <table width="100%" class="results">
             <center>
               <img src="assets/ood-combined.png" alt="ood-combined" style="width: 95%;">
-              <!-- <img src="assets/ood-focal.png" alt="ood-focal" style="width: 80%;"> -->
             </center>
           </table>
         </div>
@@ -644,13 +685,13 @@
       </p>
     </div> -->
 
-    <!-- <div class="text-center">
+    <div class="text-center">
       <hr />
-      <small>Inspired by
-        <a href="https://TODO">TODO</a>
+      <small>Website inspired by
+        <a href="https://kair-bair.github.io/dycheck/">DyCheck</a>
       </small>
     </div>
-     -->
+    
   </div>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/night-owl.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
