@@ -45,7 +45,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       echo "Usage: $0 --ray_encoding <ray_encoding> --pos_enc <pos_enc> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
-      echo "  --ray_encoding: plucker, camray, embed, or raymap"
+      echo "  --ray_encoding: plucker, camray, none, or raymap"
       echo "  --pos_enc: prope, gta, or none"
       echo "  --gpus: comma-separated GPU list (e.g., '0,1')"
       echo "  --test-zoom-in: space-separated zoom factors for testing (e.g., '3 5')"
