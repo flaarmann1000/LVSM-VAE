@@ -3,24 +3,28 @@
 # Usage
 # 
 # 2 GPUs Training
-# bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1"
-# bash ./scripts/nvs.sh --encode plucker-gta --gpus "0,1"
+# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1"
+# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc gta --gpus "0,1"
 # 
 # 2 GPUs Testing (with zooming in)
-# bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-zoom-in "1 3 5"
+# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
 #
 # 2 GPUs Testing (with more context views)
-# bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-context-views "2 4 8 16"
+# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
 #
 # 2 GPUs Testing (with rendering video)
-# bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-render-video
+# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-render-video
 
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --encode)
-      ENCODE="$2"   
+    --ray_encoding)
+      RAY_ENCODING="$2"   
+      shift 2
+      ;;
+    --pos_enc)
+      POS_ENC="$2"
       shift 2
       ;;
     --gpus)
@@ -40,8 +44,9 @@ while [[ $# -gt 0 ]]; do
       shift 1
       ;;
     -h|--help)
-      echo "Usage: $0 --encode <encode> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
-      echo "  --encode: plucker-none, plucker-prope, or plucker-gta"
+      echo "Usage: $0 --ray_encoding <ray_encoding> --pos_enc <pos_enc> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
+      echo "  --ray_encoding: plucker, camray, embed, or raymap"
+      echo "  --pos_enc: prope, gta, or none"
       echo "  --gpus: comma-separated GPU list (e.g., '0,1')"
       echo "  --test-zoom-in: space-separated zoom factors for testing (e.g., '3 5')"
       echo "  --test-context-views: space-separated context views for testing (e.g., '2 4 8 16')"
@@ -57,8 +62,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check required arguments
-if [ -z "$ENCODE" ]; then
-  echo "Error: --encode is required"
+if [ -z "$RAY_ENCODING" ]; then
+  echo "Error: --ray_encoding is required"
+  exit 1
+fi
+
+if [ -z "$POS_ENC" ]; then
+  echo "Error: --pos_enc is required"
   exit 1
 fi
 
@@ -83,53 +93,32 @@ BASE_CMD=(
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
     "--max_steps 80000 --test_every 8000"
+    "--model_config.ray_encoding ${RAY_ENCODING}"
+    "--model_config.pos_enc ${POS_ENC}"
+    "--output_dir results/${NAME}-${RAY_ENCODING}-${POS_ENC}"
 )
 
-case $ENCODE in
-    plucker-none)
-        CMD=("${BASE_CMD[@]}")
-        CMD+=(
-            "--model_config.ray_encoding plucker"
-            "--model_config.pos_enc none"
-            "--output_dir results/${NAME}-plucker-none"
-        )
-        ;;
-    plucker-prope)
-        CMD=("${BASE_CMD[@]}")
-        CMD+=(
-            "--model_config.ray_encoding plucker"
-            "--model_config.pos_enc prope"
-            "--output_dir results/${NAME}-plucker-prope"
-        )
-        ;;
-    plucker-gta)
-        CMD=("${BASE_CMD[@]}")
-        CMD+=(
-            "--model_config.ray_encoding plucker"
-            "--model_config.pos_enc gta"
-            "--output_dir results/${NAME}-plucker-gta"
-        )
-        ;;
-    *)
-        echo "Invalid encode: $ENCODE"
-        exit 1
-        ;;
-esac
+echo "NAME: ${NAME}"
+echo "RAY_ENCODING: ${RAY_ENCODING}"
+echo "POS_ENC: ${POS_ENC}"
 
 if [ -n "$TEST_ZOOM_IN" ]; then
     for zoom_factor in $TEST_ZOOM_IN; do
         echo "Starting testing with zoom factor ${zoom_factor}..."
-        CMD+=(
+        CMD=(
+            "${BASE_CMD[@]}"
             "--test_only --auto_resume"
             "--test_zoom_factor ${zoom_factor}"
             "--test_subdir eval-zoom${zoom_factor}x"
         )
         CUDA_VISIBLE_DEVICES=$GPUS eval "${CMD[@]}"
     done
+    exit 0
 elif [ -n "$TEST_CONTEXT_VIEWS" ]; then
     for context_views in $TEST_CONTEXT_VIEWS; do
         echo "Starting testing with ${context_views} context views..."
-        CMD+=(
+        CMD=(
+            "${BASE_CMD[@]}"
             "--test_only --auto_resume"
             "--model_config.ref_views ${context_views}"
             "--test_input_views ${context_views}"
@@ -138,13 +127,20 @@ elif [ -n "$TEST_CONTEXT_VIEWS" ]; then
         )
         CUDA_VISIBLE_DEVICES=$GPUS eval "${CMD[@]}"
     done
+    exit 0
 elif [ -n "$TEST_RENDER_VIDEO" ]; then
     echo "Starting testing with rendering video for fisrt 10 scenes ..."
-    CMD+=(
+    CMD=(
+        "${BASE_CMD[@]}"
         "--test_only --auto_resume --render_video --test_n 10"
     )
     CUDA_VISIBLE_DEVICES=$GPUS eval "${CMD[@]}"
+    exit 0
 else
     echo "Starting training process..."
+    CMD=(
+        "${BASE_CMD[@]}"
+    )
     CUDA_VISIBLE_DEVICES=$GPUS eval "${CMD[@]}"
+    exit 0
 fi

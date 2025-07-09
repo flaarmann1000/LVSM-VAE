@@ -60,7 +60,7 @@ class LVSMDecoderOnlyModelConfig:
     patch_size: int = 8
 
     # How the input rays are encoded.
-    ray_encoding: Literal["plucker", "local-ray-dir", "shared-embed", "raymap"] = (
+    ray_encoding: Literal["plucker", "camray", "none", "raymap"] = (
         "plucker"
     )
 
@@ -85,7 +85,7 @@ class LVSMDecoderOnlyModel(nn.Module):
             config.cam_shape[:2] == config.img_shape[:2]
         ), f"{config.cam_shape[:2]} != {config.img_shape[:2]}"
 
-        if config.ray_encoding == "shared-embed":
+        if config.ray_encoding == "none":
             shared_rays = torch.randn(config.cam_shape)
             self.shared_rays = nn.Parameter(shared_rays, requires_grad=False)
 
@@ -140,7 +140,7 @@ class LVSMDecoderOnlyModel(nn.Module):
         cam_dtype = cams.camtoworld.dtype
         device = cams.camtoworld.device
 
-        if config.ray_encoding == "shared-embed":
+        if config.ray_encoding == "none":
             rays = repeat(self.shared_rays, "h w c -> b v h w c", b=batch_size, v=v)
         else:
             # Preprocess cameras into rays.
@@ -151,14 +151,14 @@ class LVSMDecoderOnlyModel(nn.Module):
                     torch.eye(4, dtype=cam_dtype, device=device).broadcast_to(
                         cams.camtoworld.shape
                     )
-                    if config.ray_encoding == "local-ray-dir"
+                    if config.ray_encoding == "camray"
                     else cams.camtoworld
                 ),
                 height=cams.height,
                 width=cams.width,
                 downscale=downscale,
             )
-            if config.ray_encoding in ["plucker", "local-ray-dir"]:
+            if config.ray_encoding in ["plucker", "camray"]:
                 rays = raymap_to_plucker(rays)
             else:
                 assert config.ray_encoding == "raymap"

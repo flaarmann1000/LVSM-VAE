@@ -26,16 +26,16 @@ Checkout [`scripts/data_preprocess.py`](scripts/data_preprocess.py) for converti
 
 ```
 # 2 GPUs Training
-bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1"
+bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1"
+ 
+# 2 GPUs Testing (with zooming in)
+bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
 
-# 2 GPUs Testing (with {1, 3, 5}x zooming in)
-bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-zoom-in "1 3 5"
+# 2 GPUs Testing (with more context views)
+bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
 
-# 2 GPUs Testing (with {2, 4, 8, 16} context/input views)
-bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-context-views "2 4 8 16"
-
-# 2 GPUs Testing (with video rendering using pre-defined trajectory)
-bash ./scripts/nvs.sh --encode plucker-prope --gpus "0,1" --test-render-video
+# 2 GPUs Testing (with rendering video)
+bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-render-video
 ```
 
 
