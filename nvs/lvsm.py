@@ -12,17 +12,10 @@ from einops import rearrange, repeat
 from torch import Tensor
 
 from prope.torch import PropeDotProductAttention
-from prope.utils.functional import (
-    Camera,
-    camera_to_raymap,
-    patchify,
-    raymap_to_plucker,
-    unpatchify,
-)
-from prope.utils.transformer import (
-    TransformerEncoderConfig,
-    TransformerEncoderLayerConfig,
-)
+from prope.utils.functional import (Camera, camera_to_raymap, patchify,
+                                    raymap_to_plucker, unpatchify)
+from prope.utils.transformer import (TransformerEncoderConfig,
+                                     TransformerEncoderLayerConfig)
 
 
 @dataclass
@@ -60,9 +53,7 @@ class LVSMDecoderOnlyModelConfig:
     patch_size: int = 8
 
     # How the input rays are encoded.
-    ray_encoding: Literal["plucker", "camray", "none", "raymap"] = (
-        "plucker"
-    )
+    ray_encoding: Literal["plucker", "camray", "none", "raymap"] = "plucker"
 
     pos_enc: Literal["prope", "gta", "none"] = "prope"
 

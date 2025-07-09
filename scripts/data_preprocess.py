@@ -1,13 +1,13 @@
 import glob
 import json
 import os
-from typing import Any, Dict, List, Literal
 from functools import partial
 from multiprocessing import Pool
+from typing import Any, Dict, List, Literal
 
 import numpy as np
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
 from nvs.dataset import load_and_maybe_update_meta_info
 
@@ -150,7 +150,9 @@ def preprocess_and_cache_data(
         json.dump(meta_info, f)
 
 
-def preprocess_realestate10k(data_dir: str, cache_dir: str, split: Literal["train", "test"]):
+def preprocess_realestate10k(
+    data_dir: str, cache_dir: str, split: Literal["train", "test"]
+):
     data_dirs = sorted(glob.glob(f"{data_dir}/{split}/*"))
     with Pool(12) as p:
         _ = list(
@@ -170,6 +172,7 @@ def preprocess_realestate10k(data_dir: str, cache_dir: str, split: Literal["trai
                 total=len(data_dirs),
             )
         )
+
 
 if __name__ == "__main__":
     # Preprocess the realestate10k dataset
