@@ -403,7 +403,7 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Idea: Camera as Image's "Positional" Identifier</h3>
       <p>
-        The camera, defined by its intrinsic and extrinsic parameters, uniquely determines
+        The camera, defined by its <strong>intrinsic</strong> and <strong>extrinsic</strong> parameters, uniquely determines
         where and how the image observation was captured within the 3D world,
         acting as the "positional" identifier that we aim to spatially encode into the
         multi-view transformer.
@@ -435,9 +435,8 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Positional Encoding for Multi-view Geometry</h3>
       <p>
-        Geometric relationships are important for visual tokens in multiview transformers. This is similar to 1D
-        position in large language models,
-        where relative position encodings (RPEs) can capture token-to-token distances. The relationships that matter in
+        Visual tokens have to be encoded with their geometric relationships in multiview transformers, just like 1D positional encoding is necessary in LLMs. 
+        This can be done in absolute, or relative space like RoPE to capture token-to-token distances. The relationships that matter in
         multiview geometry
         are between cameras, which can be fully specified by intrinsic and extrinsic parameters:
       </p>
@@ -454,7 +453,7 @@
       <h3 class="mt-4 mb-3">Our Method: Relative Projective Positional Encoding (PRoPE)</h3>
       <p>
         In its essence, PRoPE explicitly encodes the relative camera <em>projective</em>
-        transformation between tokens -- in an RoPE-like manner -- which is compatible
+        transformation between tokens &mdash; in an RoPE-like manner that is compatible
         with flash-attention and brings little overhead to the system.
       </p>
       <div class="row">
@@ -466,10 +465,8 @@
       </div>
 
       <p>
-        It is also extremely easy to implement and can be plugged
-        into any existing attention-based framework with minimal changes: Just replace
-        the `F.scaled_dot_product_attention` with the code snippet below to inject
-        camera information.
+        It is also extremely <strong>easy to implement</strong> and can be plugged
+        into any existing attention-based framework with minimal changes!
       </p>
       <div class="row">
         <div class="col-md-12 mt-2">
@@ -495,8 +492,7 @@
     <div class="row my-5">
       <h3 class="mt-4 mb-3">Plug-and-Play: Improved Novel View Synthesis</h3>
       <p>
-        We inject PRoPE into the existing LVSM framework and evaluate its performance on the
-        task of novel view synthesis.
+        We inject PRoPE into the existing LVSM framework and see immediate improvement! Here are the curves:
       </p>
       <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
@@ -633,9 +629,8 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Better Robostness than Alternative Camera Conditioning Methods</h3>
       <p>
-        Our method demonstrates superior robustness on handling out-of-distribution context
-        length (more views) and out-of-distribution intrinsic parameters (zoom-in) at test time,
-        benefiting from our <em>relative</em> camera encoding formula.
+        Incorporating PRoPE also improves the model robustness when handling <strong>out-of-distribution inputs</strong>, 
+        both in terms of 1) number of views (context length), and 2) unseen intrinsic parameters (zoom-in/out) at test time.
       </p>
       <div class="row">
         <div class="col-md-12 mt-2">
@@ -646,6 +641,12 @@
           </table>
         </div>
       </div>
+    </div>
+
+    <div class="my-5">
+      <p>
+        Try it out today with our code and let us know your findings!
+      </p>
     </div>
 
 
