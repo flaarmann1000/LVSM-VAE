@@ -38,6 +38,10 @@
       font-family: "Lato", sans-serif;
     }
 
+    .thicker-text {
+      font-family: "Roboto Black", sans-serif;
+    }
+
     .terminal-container {
       position: relative;
       border-radius: 18px;
@@ -403,7 +407,7 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Idea: Camera as Image's "Positional" Identifier</h3>
       <p>
-        The camera, defined by its <strong>intrinsic</strong> and <strong>extrinsic</strong> parameters, uniquely determines
+        The camera, defined by its <strong class="thicker-text">intrinsic and extrinsic</strong> parameters, uniquely determines
         where and how the image observation was captured within the 3D world,
         acting as the "positional" identifier that we aim to spatially encode into the
         multi-view transformer.
@@ -452,7 +456,7 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Our Method: Relative Projective Positional Encoding (PRoPE)</h3>
       <p>
-        In its essence, PRoPE explicitly encodes the relative camera <em>projective</em>
+        In its essence, PRoPE explicitly encodes the relative camera <strong class="thicker-text">projective</strong>
         transformation between tokens &mdash; in an RoPE-like manner that is compatible
         with flash-attention and brings little overhead to the system.
       </p>
@@ -465,8 +469,8 @@
       </div>
 
       <p>
-        It is also extremely <strong>easy to implement</strong> and can be plugged
-        into any existing attention-based framework with minimal changes!
+        It is also extremely <strong class="thicker-text">easy to implement</strong> and can be plugged
+        into any existing attention-based framework with minimal changes! See <a href="https://github.com/liruilong940607/prope">our github</a> for complete implementation.
       </p>
       <div class="row">
         <div class="col-md-12 mt-2">
@@ -629,7 +633,7 @@
     <div class="my-5">
       <h3 class="mt-4 mb-3">Better Robostness than Alternative Camera Conditioning Methods</h3>
       <p>
-        Incorporating PRoPE also improves the model robustness when handling <strong>out-of-distribution inputs</strong>, 
+        Incorporating PRoPE also improves the model robustness when handling <strong class="thicker-text">out-of-distribution inputs</strong>, 
         both in terms of 1) number of views (context length), and 2) unseen intrinsic parameters (zoom-in/out) at test time.
       </p>
       <div class="row">
