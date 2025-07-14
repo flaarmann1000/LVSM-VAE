@@ -1,11 +1,11 @@
 # PRoPE
 https://www.liruilong.cn/prope/
 
-This is the official repo for the paper
+This is the official repo for the paper "Cameras as Relative Positional Encoding"
 
-"PRoPE: Projective Positional Encoding for Multiview Transformers"
+<img width="1876" height="596" alt="image" src="https://github.com/user-attachments/assets/9eba5518-b664-4d54-826c-6f35d7c84698" />
 
-**TL;DR**: We introduce **PRoPE**, a projective positional encoding for multiview transformers that directly injects *relative camera geometry*—in the form of projective transformations—into the attention mechanism. Inspired by Rotary Positional Encoding (RoPE) in LLMs, PRoPE enhances cross-view reasoning with *no additional overhead*, remains *compatible with flash attention*, and *naturally reduces to RoPE in the single-view setting*. It delivers noticeable and consistent improvements across a diverse range tasks that requires cross-view understanding.
+**TL;DR**: Language models and multi-view transformers must both bind “positional” information to input tokens, in terms of sequence position for LLMs and camera parameters for multi-view transformers. We present a study on camera conditioning that includes absolute positional encodings (e.g, raymaps), relative pose encodings (e.g., GTA), and a new method (PRoPE) uses *relative projective* transformation to capture 3D relationship between image tokens.
 
 ## Implementations
 
