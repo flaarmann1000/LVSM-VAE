@@ -38,4 +38,5 @@ output = prope_dot_product_attention(
 
 ## Experiments
 
-- Improve LVSM on the task of Novel View Syntheis: [checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
+- Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
+- Improve UniMatch on the task of Stereo Depth Estimation: To be released
