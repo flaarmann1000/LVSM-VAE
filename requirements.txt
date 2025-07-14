@@ -12,6 +12,12 @@ opencv-python
 imageio[ffmpeg]
 torchmetrics[image]
 
+# for scripts/*.ipynb
+ipykernel
+matplotlib
+pandas
+tabulate
+
 # dev
 black
 isort
