@@ -1,41 +1,51 @@
 # PRoPE
 https://www.liruilong.cn/prope/
 
-This branch implements the Novel View Synthesis experiment (Improve LVSM on RealEstate10k Dataset) for the paper:
-
-"PRoPE: Projective Positional Encoding for Multiview Transformers"
+This branch shows how to apply different camera conditioning approaches (including [our proposed PRoPE](https://www.liruilong.cn/prope/)) to a [LVSM](https://haian-jin.github.io/projects/LVSM/) model for the task of novel view synthesis.
 
 ## Setup
 
 ```
-conda create -n prope python=3.10
-conda activate prope
-# We use CUDA 12.4 for torch. Adjust if necessary
 pip install -r requirements.txt 
-# This will install two packages: prope, nvs
-pip install . 
+pip install . # this will install two packages: prope, nvs
 ```
 
 To make sure your setup works, you could run `pytest tests/`.
 
 ## Dataset
 
-Checkout [`scripts/data_preprocess.py`](scripts/data_preprocess.py) for converting the RealEstate10k data into our format.
+We first download the [RealEstate10K](https://google.github.io/realestate10k/) dataset using the script [`scripts/gen_imgs.py`](scripts/gen_imgs.py). Then we run [`scripts/gen_transforms.py`](scripts/gen_transforms.py) and [`scripts/data_processes.py`](scripts/data_processes.py) to convert the data into our data format.
 
-## Model Training and Testing
+Note we were not able to download all sequences as some of them are already invalid. We mark all sequences that we used for training and validation in the file [`assets/test_split_re10k.txt`](assets/test_split_re10k.txt) and [`assets/train_split_re10k.txt`](assets/train_split_re10k.txt) for reproducibility.
+
+## Training
+
+We support training with pixel-aligned camera conditioning (e.g., Plucker raymap, Naive raymap, Camray) or attention-based camera conditioning (e.g., GTA, PRoPE) or the combination of them. For example training with `PRoPE+Camray` (our recommandation) with 2 GPUs is via:
 
 ```
-# 2 GPUs Training
-bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1"
+bash ./scripts/nvs.sh --ray_encoding camray --pos_enc prope --gpus "0,1"
+```
+
+See `bash ./scripts/nvs.sh  -h` for helper information.
+
+## Validation
+
+The validation on different zooming-in factors can be done via:
  
-# 2 GPUs Testing (with zooming in)
-bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
+```
+bash ./scripts/nvs.sh --ray_encoding camray --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
+```
 
-# 2 GPUs Testing (with more context views)
-bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
+And different number of input (context) views can be done via:
 
-# 2 GPUs Testing (with rendering video)
-bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-render-video
+```
+bash ./scripts/nvs.sh --ray_encoding camray --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
+```
+
+Or if you simplly want to render some videos out (trajectory is predefined):
+
+```
+bash ./scripts/nvs.sh --ray_encoding camray --pos_enc prope --gpus "0,1" --test-render-video
 ```
 
 

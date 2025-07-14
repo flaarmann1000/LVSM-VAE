@@ -50,7 +50,7 @@ def test_prope_torch():
     viewmats = torch.eye(4).repeat(batch, cameras, 1, 1)
     Ks = torch.rand(batch, cameras, 3, 3)
 
-    for _ in tqdm.tqdm(range(10), desc="prope as function"):
+    for _ in tqdm.tqdm(range(1), desc="prope as function"):
         out_torch_0 = prope_dot_product_attention(
             q,
             k,
@@ -71,7 +71,7 @@ def test_prope_torch():
         image_width=image_width,
         image_height=image_height,
     )
-    for _ in tqdm.tqdm(range(1000), desc="prope as module"):
+    for _ in tqdm.tqdm(range(1), desc="prope as module"):
         out_torch_1 = prope(q, k, v, viewmats, Ks)
 
     torch.testing.assert_close(out_torch_0, out_torch_1)
