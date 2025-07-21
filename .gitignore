@@ -125,5 +125,6 @@ compile_commands.json
 
 .venv/
 
-data_processed/
+data_processed
+logs/
 results/

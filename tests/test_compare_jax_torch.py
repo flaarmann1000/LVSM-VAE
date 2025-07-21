@@ -23,17 +23,19 @@
 
 import jax
 import numpy as np
+import pytest
 import torch
 
 # Enable highest precision
 jax.config.update("jax_enable_x64", True)
 torch.set_default_dtype(torch.float64)
 
-from prope.jax import prope_dot_product_attention as prope_jax
-from prope.torch import prope_dot_product_attention as prope_torch
+from prope.jax import PropeDotProductAttention as PropeDotProductAttentionJax
+from prope.torch import PropeDotProductAttention as PropeDotProductAttentionTorch
 
 
-def test_compare_jax_torch():
+@pytest.mark.parametrize("no_intrinics", [True, False])
+def test_compare_jax_torch(no_intrinics: bool):
     torch.manual_seed(42)
     cameras = 3
     patches_x = 8
@@ -51,35 +53,41 @@ def test_compare_jax_torch():
     v = torch.randn(batch, num_heads, seqlen, head_dim)
 
     viewmats = torch.eye(4).repeat(batch, cameras, 1, 1)
-    Ks = torch.rand(batch, cameras, 3, 3)
 
-    out_jax = prope_jax(
-        q.permute(0, 2, 1, 3).numpy(),
-        k.permute(0, 2, 1, 3).numpy(),
-        v.permute(0, 2, 1, 3).numpy(),
-        viewmats=viewmats.numpy(),
-        Ks=Ks.numpy(),
+    if no_intrinics:
+        Ks = None
+    else:
+        Ks = torch.rand(batch, cameras, 3, 3)
+
+    out_jax = PropeDotProductAttentionJax(
+        head_dim=head_dim,
+        cameras=cameras,
         patches_x=patches_x,
         patches_y=patches_y,
         image_width=image_width,
         image_height=image_height,
+    )(
+        q.permute(0, 2, 1, 3).numpy(),
+        k.permute(0, 2, 1, 3).numpy(),
+        v.permute(0, 2, 1, 3).numpy(),
+        viewmats=viewmats.numpy(),
+        Ks=Ks.numpy() if Ks is not None else None,
     )
-    out_torch = prope_torch(
+    out_torch = PropeDotProductAttentionTorch(
+        head_dim=head_dim,
+        cameras=cameras,
+        patches_x=patches_x,
+        patches_y=patches_y,
+        image_width=image_width,
+        image_height=image_height,
+    )(
         q,
         k,
         v,
         viewmats=viewmats,
         Ks=Ks,
-        patches_x=patches_x,
-        patches_y=patches_y,
-        image_width=image_width,
-        image_height=image_height,
     )
 
     np.testing.assert_allclose(
         out_jax, out_torch.permute(0, 2, 1, 3).numpy(), atol=1e-4, rtol=1e-4
     )
-
-
-if __name__ == "__main__":
-    test_compare_jax_torch()

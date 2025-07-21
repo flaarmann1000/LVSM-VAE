@@ -30,17 +30,80 @@ import jax.nn
 import jax.numpy as jnp
 
 
+class PropeDotProductAttention:
+    """PRoPE attention with precomputed RoPE coefficients."""
+
+    def __init__(
+        self,
+        head_dim: int,
+        cameras: int,
+        patches_x: int,
+        patches_y: int,
+        image_width: int,
+        image_height: int,
+        freq_base: float = 100.0,
+        freq_scale: float = 1.0,
+    ):
+        self.head_dim = head_dim
+        self.cameras = cameras
+        self.patches_x = patches_x
+        self.patches_y = patches_y
+        self.image_width = image_width
+        self.image_height = image_height
+
+        # Precompute coefficients for x and y
+        self.coeffs_x = _rope_precompute_coeffs(
+            jnp.tile(jnp.arange(patches_x), patches_y * cameras),
+            freq_base=freq_base,
+            freq_scale=freq_scale,
+            feat_dim=head_dim // 4,
+        )
+        self.coeffs_y = _rope_precompute_coeffs(
+            jnp.tile(jnp.repeat(jnp.arange(patches_y), patches_x), cameras),
+            freq_base=freq_base,
+            freq_scale=freq_scale,
+            feat_dim=head_dim // 4,
+        )
+
+    def __call__(
+        self,
+        q: jax.Array,  # (batch, seqlen, num_heads, head_dim)
+        k: jax.Array,  # (batch, seqlen, num_heads, head_dim)
+        v: jax.Array,  # (batch, seqlen, num_heads, head_dim)
+        viewmats: jax.Array,  # (batch, cameras, 4, 4)
+        Ks: jax.Array | None = None,  # (batch, cameras, 3, 3)
+        **kwargs,
+    ) -> jax.Array:
+        """Apply PRoPE attention with precomputed coefficients."""
+        return prope_dot_product_attention(
+            q,
+            k,
+            v,
+            viewmats=viewmats,
+            Ks=Ks,
+            patches_x=self.patches_x,
+            patches_y=self.patches_y,
+            image_width=self.image_width,
+            image_height=self.image_height,
+            coeffs_x=self.coeffs_x,
+            coeffs_y=self.coeffs_y,
+            **kwargs,
+        )
+
+
 def prope_dot_product_attention(
     q: jax.Array,  # (batch, seqlen, num_heads, head_dim)
     k: jax.Array,  # (batch, seqlen, num_heads, head_dim)
     v: jax.Array,  # (batch, seqlen, num_heads, head_dim)
     *,
     viewmats: jax.Array,  # (batch, cameras, 4, 4)
-    Ks: jax.Array,  # (batch, cameras, 3, 3)
+    Ks: jax.Array | None = None,  # (batch, cameras, 3, 3)
     patches_x: int,  # How many patches wide is each image?
     patches_y: int,  # How many patches tall is each image?
     image_width: int,  # Width of the image. Used to normalize intrinsics.
     image_height: int,  # Height of the image. Used to normalize intrinsics.
+    coeffs_x: tuple[jax.Array, jax.Array] | None = None,
+    coeffs_y: tuple[jax.Array, jax.Array] | None = None,
     **kwargs,
 ) -> jax.Array:
     """Similar to jax.nn.dot_product_attention, but applies PRoPE-style
@@ -59,45 +122,53 @@ def prope_dot_product_attention(
     cameras = viewmats.shape[1]
     assert q.shape == k.shape == v.shape
     assert viewmats.shape == (batch, cameras, 4, 4)
-    assert Ks.shape == (batch, cameras, 3, 3)
+    assert Ks is None or Ks.shape == (batch, cameras, 3, 3)
     assert seqlen == cameras * patches_x * patches_y
 
     # Normalize camera intrinsics.
-    Ks_norm = jnp.zeros_like(Ks)
-    Ks_norm = Ks_norm.at[..., 0, 0].set(Ks[..., 0, 0] / image_width)
-    Ks_norm = Ks_norm.at[..., 1, 1].set(Ks[..., 1, 1] / image_height)
-    Ks_norm = Ks_norm.at[..., 0, 2].set(Ks[..., 0, 2] / image_width - 0.5)
-    Ks_norm = Ks_norm.at[..., 1, 2].set(Ks[..., 1, 2] / image_height - 0.5)
-    Ks_norm = Ks_norm.at[..., 2, 2].set(1.0)
-    del Ks
+    if Ks is not None:
+        Ks_norm = jnp.zeros_like(Ks)
+        Ks_norm = Ks_norm.at[..., 0, 0].set(Ks[..., 0, 0] / image_width)
+        Ks_norm = Ks_norm.at[..., 1, 1].set(Ks[..., 1, 1] / image_height)
+        Ks_norm = Ks_norm.at[..., 0, 2].set(Ks[..., 0, 2] / image_width - 0.5)
+        Ks_norm = Ks_norm.at[..., 1, 2].set(Ks[..., 1, 2] / image_height - 0.5)
+        Ks_norm = Ks_norm.at[..., 2, 2].set(1.0)
+        del Ks
 
-    # Compute the camera projection matrices we use in PRoPE.
-    # - K is an `image<-camera` transform.
-    # - viewmats is a `camera<-world` transform.
-    # - P = lift(K) @ viewmats is an `image<-world` transform.
-    P = jnp.einsum("...ij,...jk->...ik", _lift_K(Ks_norm), viewmats)
-    P_T = P.swapaxes(-1, -2)
-    P_inv = jnp.einsum(
-        "...ij,...jk->...ik",
-        _invert_SE3(viewmats),
-        _lift_K(_invert_K(Ks_norm)),
-    )
+        # Compute the camera projection matrices we use in PRoPE.
+        # - K is an `image<-camera` transform.
+        # - viewmats is a `camera<-world` transform.
+        # - P = lift(K) @ viewmats is an `image<-world` transform.
+        P = jnp.einsum("...ij,...jk->...ik", _lift_K(Ks_norm), viewmats)
+        P_T = P.swapaxes(-1, -2)
+        P_inv = jnp.einsum(
+            "...ij,...jk->...ik",
+            _invert_SE3(viewmats),
+            _lift_K(_invert_K(Ks_norm)),
+        )
+    else:
+        # GTA formula. P is `camera<-world` transform.
+        P = viewmats
+        P_T = P.swapaxes(-1, -2)
+        P_inv = _invert_SE3(viewmats)
+
     assert P.shape == P_inv.shape == (batch, cameras, 4, 4)
 
-    # Precompute cos/sin terms for RoPE. We use tiles/repeats for 'row-major'
-    # broadcasting, XLA should optimize these away.
-    coeffs_x = _rope_precompute_coeffs(
-        jnp.tile(jnp.arange(patches_x), patches_y * cameras),
-        freq_base=100.0,
-        freq_scale=1.0,
-        feat_dim=head_dim // 4,
-    )
-    coeffs_y = _rope_precompute_coeffs(
-        jnp.tile(jnp.repeat(jnp.arange(patches_y), patches_x), cameras),
-        freq_base=100.0,
-        freq_scale=1.0,
-        feat_dim=head_dim // 4,
-    )
+    # Precompute cos/sin terms for RoPE if not provided.
+    if coeffs_x is None:
+        coeffs_x = _rope_precompute_coeffs(
+            jnp.tile(jnp.arange(patches_x), patches_y * cameras),
+            freq_base=100.0,
+            freq_scale=1.0,
+            feat_dim=head_dim // 4,
+        )
+    if coeffs_y is None:
+        coeffs_y = _rope_precompute_coeffs(
+            jnp.tile(jnp.repeat(jnp.arange(patches_y), patches_x), cameras),
+            freq_base=100.0,
+            freq_scale=1.0,
+            feat_dim=head_dim // 4,
+        )
 
     # Block-diagonal transforms to the inputs and outputs of the attention operator.
     assert head_dim % 4 == 0

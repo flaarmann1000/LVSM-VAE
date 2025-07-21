@@ -29,6 +29,7 @@ import torch.nn.functional as F
 
 
 class PropeDotProductAttention(torch.nn.Module):
+    """PRoPE attention with precomputed RoPE coefficients."""
 
     coeffs_x_0: torch.Tensor
     coeffs_x_1: torch.Tensor
@@ -69,12 +70,30 @@ class PropeDotProductAttention(torch.nn.Module):
             freq_scale=freq_scale,
             feat_dim=head_dim // 4,
         )
-        self.register_buffer("coeffs_x_0", coeffs_x[0])
-        self.register_buffer("coeffs_x_1", coeffs_x[1])
-        self.register_buffer("coeffs_y_0", coeffs_y[0])
-        self.register_buffer("coeffs_y_1", coeffs_y[1])
+        # Do not save coeffs to checkpoint as `cameras` might change during testing.
+        self.register_buffer("coeffs_x_0", coeffs_x[0], persistent=False)
+        self.register_buffer("coeffs_x_1", coeffs_x[1], persistent=False)
+        self.register_buffer("coeffs_y_0", coeffs_y[0], persistent=False)
+        self.register_buffer("coeffs_y_1", coeffs_y[1], persistent=False)
 
-    def forward(self, q, k, v, viewmats, Ks, **kwargs):
+    # override load_state_dict to not load coeffs if they exist (for backward compatibility)
+    def load_state_dict(self, state_dict, strict=True):
+        # remove coeffs from state_dict
+        state_dict.pop("coeffs_x_0", None)
+        state_dict.pop("coeffs_x_1", None)
+        state_dict.pop("coeffs_y_0", None)
+        state_dict.pop("coeffs_y_1", None)
+        super().load_state_dict(state_dict, strict)
+
+    def forward(
+        self,
+        q: torch.Tensor,  # (batch, num_heads, seqlen, head_dim)
+        k: torch.Tensor,  # (batch, num_heads, seqlen, head_dim)
+        v: torch.Tensor,  # (batch, num_heads, seqlen, head_dim)
+        viewmats: torch.Tensor,  # (batch, cameras, 4, 4)
+        Ks: Optional[torch.Tensor],  # (batch, cameras, 3, 3)
+        **kwargs,
+    ) -> torch.Tensor:
         return prope_dot_product_attention(
             q,
             k,
@@ -182,17 +201,17 @@ def prope_dot_product_attention(
     # Block-diagonal transforms to the inputs and outputs of the attention operator.
     assert head_dim % 4 == 0
     transforms_q = [
-        (partial(_apply_tiled_projmat, projmat=P_T), head_dim // 2),
+        (partial(_apply_tiled_projmat, matrix=P_T), head_dim // 2),
         (partial(_rope_apply_coeffs, coeffs=coeffs_x), head_dim // 4),
         (partial(_rope_apply_coeffs, coeffs=coeffs_y), head_dim // 4),
     ]
     transforms_kv = [
-        (partial(_apply_tiled_projmat, projmat=P_inv), head_dim // 2),
+        (partial(_apply_tiled_projmat, matrix=P_inv), head_dim // 2),
         (partial(_rope_apply_coeffs, coeffs=coeffs_x), head_dim // 4),
         (partial(_rope_apply_coeffs, coeffs=coeffs_y), head_dim // 4),
     ]
     transforms_o = [
-        (partial(_apply_tiled_projmat, projmat=P), head_dim // 2),
+        (partial(_apply_tiled_projmat, matrix=P), head_dim // 2),
         (partial(_rope_apply_coeffs, coeffs=coeffs_x, inverse=True), head_dim // 4),
         (partial(_rope_apply_coeffs, coeffs=coeffs_y, inverse=True), head_dim // 4),
     ]
@@ -209,19 +228,21 @@ def prope_dot_product_attention(
 
 def _apply_tiled_projmat(
     feats: torch.Tensor,  # (batch, num_heads, seqlen, feat_dim)
-    projmat: torch.Tensor,  # (batch, cameras, 4, 4)
+    matrix: torch.Tensor,  # (batch, cameras, D, D)
 ) -> torch.Tensor:
     """Apply projection matrix to features."""
     # - seqlen => (cameras, patches_x * patches_y)
     # - feat_dim => (feat_dim // 4, 4)
     (batch, num_heads, seqlen, feat_dim) = feats.shape
-    cameras = projmat.shape[1]
+    cameras = matrix.shape[1]
     assert seqlen > cameras and seqlen % cameras == 0
-    assert projmat.shape == (batch, cameras, 4, 4)
+    D = matrix.shape[-1]
+    assert matrix.shape == (batch, cameras, D, D)
+    assert feat_dim % D == 0
     return torch.einsum(
         "bcij,bncpkj->bncpki",
-        projmat,
-        feats.reshape((batch, num_heads, cameras, -1, feat_dim // 4, 4)),
+        matrix,
+        feats.reshape((batch, num_heads, cameras, -1, feat_dim // D, D)),
     ).reshape(feats.shape)
 
 

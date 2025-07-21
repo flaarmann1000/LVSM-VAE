@@ -23,6 +23,7 @@
 
 import torch
 import tqdm
+import pytest
 
 # Enable highest precision
 torch.set_default_dtype(torch.float64)
@@ -30,7 +31,8 @@ torch.set_default_dtype(torch.float64)
 from prope.torch import PropeDotProductAttention, prope_dot_product_attention
 
 
-def test_prope_torch():
+@pytest.mark.skip(reason="benchmarking")
+def test_benchmark_prope_torch():
     torch.manual_seed(42)
     cameras = 3
     patches_x = 8
@@ -75,7 +77,3 @@ def test_prope_torch():
         out_torch_1 = prope(q, k, v, viewmats, Ks)
 
     torch.testing.assert_close(out_torch_0, out_torch_1)
-
-
-if __name__ == "__main__":
-    test_prope_torch()
