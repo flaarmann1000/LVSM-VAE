@@ -12,10 +12,17 @@ from einops import rearrange, repeat
 from torch import Tensor
 
 from prope.torch import PropeDotProductAttention
-from prope.utils.functional import (Camera, camera_to_raymap, patchify,
-                                    raymap_to_plucker, unpatchify)
-from prope.utils.transformer import (TransformerEncoderConfig,
-                                     TransformerEncoderLayerConfig)
+from prope.utils.functional import (
+    Camera,
+    camera_to_raymap,
+    patchify,
+    raymap_to_plucker,
+    unpatchify,
+)
+from prope.utils.transformer import (
+    TransformerEncoderConfig,
+    TransformerEncoderLayerConfig,
+)
 
 
 @dataclass

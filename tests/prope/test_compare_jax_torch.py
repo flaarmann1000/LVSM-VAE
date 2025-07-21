@@ -31,8 +31,7 @@ jax.config.update("jax_enable_x64", True)
 torch.set_default_dtype(torch.float64)
 
 from prope.jax import PropeDotProductAttention as PropeDotProductAttentionJax
-from prope.torch import \
-    PropeDotProductAttention as PropeDotProductAttentionTorch
+from prope.torch import PropeDotProductAttention as PropeDotProductAttentionTorch
 
 
 @pytest.mark.parametrize("no_intrinics", [True, False])
