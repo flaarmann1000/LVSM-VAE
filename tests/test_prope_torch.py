@@ -67,7 +67,6 @@ def test_benchmark_prope_torch():
 
     prope = PropeDotProductAttention(
         head_dim=head_dim,
-        cameras=cameras,
         patches_x=patches_x,
         patches_y=patches_y,
         image_width=image_width,
@@ -77,3 +76,7 @@ def test_benchmark_prope_torch():
         out_torch_1 = prope(q, k, v, viewmats, Ks)
 
     torch.testing.assert_close(out_torch_0, out_torch_1)
+
+
+if __name__ == "__main__":
+    test_benchmark_prope_torch()

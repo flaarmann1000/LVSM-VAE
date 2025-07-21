@@ -75,7 +75,6 @@ def test_compare_jax_torch(no_intrinics: bool):
     )
     out_torch = PropeDotProductAttentionTorch(
         head_dim=head_dim,
-        cameras=cameras,
         patches_x=patches_x,
         patches_y=patches_y,
         image_width=image_width,
@@ -91,3 +90,7 @@ def test_compare_jax_torch(no_intrinics: bool):
     np.testing.assert_allclose(
         out_jax, out_torch.permute(0, 2, 1, 3).numpy(), atol=1e-4, rtol=1e-4
     )
+
+
+if __name__ == "__main__":
+    test_compare_jax_torch(no_intrinics=False)
