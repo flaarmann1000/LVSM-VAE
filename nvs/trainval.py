@@ -2,7 +2,7 @@ import glob
 import json
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 import imageio.v2 as imageio
@@ -15,14 +15,12 @@ from einops import rearrange
 from torch import Tensor
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
-from typing_extensions import assert_never
 
 from nvs.dataset import EvalDataset, TrainDataset
 from nvs.lvsm import (
     Camera,
     LVSMDecoderOnlyModel,
     LVSMDecoderOnlyModelConfig,
-    TransformerEncoderConfig,
 )
 from nvs.perceptual import Perceptual
 from prope.utils.functional import random_SO3
@@ -318,7 +316,6 @@ class LVSMLauncher(Launcher):
     def test_initialize(
         self,
         model: Optional[torch.nn.Module] = None,
-        flux_ae: Optional[torch.nn.Module] = None,
     ) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
         dataset = None
