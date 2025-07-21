@@ -36,6 +36,7 @@ def modulate(x, shift, scale):
 
 sdpa_fn_default = F.scaled_dot_product_attention
 
+
 @dataclass
 class TransformerLayerConfig:
     d_model: int = 512

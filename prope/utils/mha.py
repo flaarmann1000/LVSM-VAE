@@ -4,8 +4,8 @@ import torch
 import torch.nn.functional as F
 from einops import rearrange
 from torch import Tensor
-from torch.nn.parameter import Parameter
 from torch.nn.init import constant_, xavier_uniform_
+from torch.nn.parameter import Parameter
 
 
 # src: https://github.com/pytorch/benchmark/blob/main/torchbenchmark/models/llama/model.py#L28
