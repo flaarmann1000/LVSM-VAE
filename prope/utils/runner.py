@@ -310,9 +310,7 @@ class Launcher:
         state = self.train_initialize()
         init_step = self.maybe_resume(state)
         if self.config.test_every > 0:
-            test_state = self.test_initialize(
-                model=state["model"], flux_ae=state.get("flux_ae", None)
-            )
+            test_state = self.test_initialize(model=state["model"])
 
         for key in ["model", "optimizer"]:
             assert key in state, f"{key} is not in state."
