@@ -21,7 +21,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# How to use:
+# How to use PRoPE attention for self-attention:
 # 
 # 1. Easiest way (fast):
 #    attn = PropeDotProductAttention(...)
@@ -38,6 +38,18 @@
 # 
 # 3. The most flexible way (but slower because repeated computation of RoPE coefficients):
 #    o = prope_dot_product_attention(q, k, v, ...)
+# 
+# How to use PRoPE attention for cross-attention:
+# 
+#    attn_src = PropeDotProductAttention(...)
+#    attn_tgt = PropeDotProductAttention(...)
+#    attn_src._precompute_and_cache_apply_fns(viewmats_src, Ks_src)
+#    attn_tgt._precompute_and_cache_apply_fns(viewmats_tgt, Ks_tgt)
+#    q_src = attn_src._apply_to_q(q_src)
+#    k_tgt = attn_tgt._apply_to_kv(k_tgt)
+#    v_tgt = attn_tgt._apply_to_kv(v_tgt)
+#    o_src = F.scaled_dot_product_attention(q_src, k_tgt, v_tgt, **kwargs)
+#    o_src = attn_src._apply_to_o(o_src)
 
 from functools import partial
 from typing import Callable, Optional, Tuple, List
