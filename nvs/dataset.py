@@ -486,8 +486,11 @@ class EvalDataset(Dataset):
             print(f"Error in {data_dir}: {e}. frame_ids: {frame_ids}")
             raise e
 
+        # Preprocess poses
         camtoworld = torch.from_numpy(loaded["camtoworld"]).float()
-        camtoworld = _normalize_poses(camtoworld)
+        camtoworld = _normalize_poses_identity_unit_distance(
+            camtoworld, ref0_idx=0, ref1_idx=self.input_views - 1
+        )
         K = torch.from_numpy(loaded["K"]).float()
         image = torch.from_numpy(loaded["image"]).float()
         image_path = loaded["image_path"]
