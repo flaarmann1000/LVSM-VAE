@@ -72,7 +72,6 @@ class LVSMDecoderOnlyModel(nn.Module):
 
         self.attention = PropeDotProductAttention(
             head_dim=config.encoder.layer.d_model // config.encoder.layer.nhead,
-            cameras=config.ref_views + config.tar_views,
             patches_x=config.img_shape[1] // config.patch_size,
             patches_y=config.img_shape[0] // config.patch_size,
             image_width=config.img_shape[1],

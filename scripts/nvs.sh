@@ -95,7 +95,7 @@ BASE_CMD=(
     "--max_steps 80000 --test_every 8000"
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
-    "--output_dir results/${NAME}-${RAY_ENCODING}-${POS_ENC}"
+    "--output_dir results/nvs/${NAME}-${RAY_ENCODING}-${POS_ENC}"
 )
 
 echo "NAME: ${NAME}"
