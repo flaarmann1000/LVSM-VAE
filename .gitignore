@@ -128,3 +128,5 @@ compile_commands.json
 data_processed
 results/
 logs/
+srun_sub.sh
+job_script.sh
