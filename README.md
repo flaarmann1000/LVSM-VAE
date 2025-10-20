@@ -1,7 +1,7 @@
 # PRoPE
 https://www.liruilong.cn/prope/
 
-This is the official repo for the paper "Cameras as Relative Positional Encoding"
+This is the official repo for the paper "Cameras as Relative Positional Encoding", published at NeurIPS 2025.
 
 <img width="1876" height="596" alt="image" src="https://github.com/user-attachments/assets/9eba5518-b664-4d54-826c-6f35d7c84698" />
 
