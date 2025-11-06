@@ -251,7 +251,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     mode = args.mode
-    dataroot = f"./RealEstate10K/{mode}"
+    dataroot = f"./scratch/partial_datasets/realestate10k/RealEstate10K/{mode}"
     DataDownloader(dataroot, mode, failure=False).run()
     DataDownloader(dataroot, mode, failure=False).show()
     DataDownloader(dataroot, mode, failure=False).regenerate_failed_urls()

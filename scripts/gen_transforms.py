@@ -100,6 +100,6 @@ def gen_transforms(base_dir):
 
 
 if __name__ == "__main__":
-    base_dir = "/scratch/partial_datasets/realestate10k"
+    base_dir = "./scratch/partial_datasets/realestate10k"    
     reorg_imgs(base_dir)
     gen_transforms(base_dir)

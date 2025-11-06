@@ -3,6 +3,9 @@ assets/*.safetensors
 .clangd
 compile_commands.json
 
+RealEstate10K/
+scratch/
+
 # Visual Studio Code configs.
 # .vscode/
 

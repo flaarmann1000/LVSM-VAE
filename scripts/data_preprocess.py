@@ -176,7 +176,7 @@ def preprocess_realestate10k(
 
 if __name__ == "__main__":
     # Preprocess the realestate10k dataset
-    data_dir = "/scratch/partial_datasets/realestate10k"
+    data_dir = "./scratch/partial_datasets/realestate10k"
     cache_dir = "./data_processed/realestate10k"
     preprocess_realestate10k(data_dir, cache_dir, split="train")
     preprocess_realestate10k(data_dir, cache_dir, split="test")
