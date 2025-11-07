@@ -5,6 +5,7 @@ compile_commands.json
 
 RealEstate10K/
 scratch/
+data/
 
 # Visual Studio Code configs.
 # .vscode/
