@@ -16,7 +16,8 @@ from torch import Tensor
 from torchmetrics.image import PeakSignalNoiseRatio, StructuralSimilarityIndexMeasure
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 
-from nvs.dataset import EvalDataset, TrainDataset
+# from nvs.dataset import EvalDataset, TrainDataset
+from nvs.latent_dataset import EvalLatentDataset, TrainLatentDataset
 from nvs.lvsm import (
     Camera,
     LVSMDecoderOnlyModel,
@@ -25,6 +26,11 @@ from nvs.lvsm import (
 from nvs.perceptual import Perceptual
 from prope.utils.functional import random_SO3
 from prope.utils.runner import Launcher, LauncherConfig, nested_to_device
+
+
+def write_tensor_to_disk(x: Tensor,path: str):
+    torch.save(x.cpu(), path)    
+
 
 
 def write_tensor_to_image(
@@ -84,7 +90,8 @@ class LVSMLauncherConfig(LauncherConfig):
     warmup_steps: int = 2500
 
     # perceptual loss weight.
-    perceptual_loss_w: float = 0.5
+    # perceptual_loss_w: float = 0.5
+    perceptual_loss_w: float = 0.0 # for now disabled for latent training
 
     # How many test scenes to run.
     test_every: int = 10000  # override
@@ -155,10 +162,12 @@ class LVSMLauncher(Launcher):
         }
         return processed
 
-    def train_initialize(self) -> Dict[str, Any]:
+    def train_initialize(self) -> Dict[str, Any]:        
         # ------------- Setup Data. ------------- #
-        scenes = sorted(glob.glob("./data_processed/realestate10k/train/*"))
-        dataset = TrainDataset(
+        # scenes = sorted(glob.glob("./data_processed/realestate10k/train/*"))
+        scenes = sorted(glob.glob("./data_processed/realestate10k_latent/train/*"))
+        # dataset = TrainDataset(
+        dataset = TrainLatentDataset(
             scenes,
             patch_size=self.config.dataset_patch_size,
             zoom_factor=self.config.train_zoom_factor,
@@ -278,18 +287,21 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
-            write_tensor_to_image(
-                rearrange(outputs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/outputs.png",
-            )
-            write_tensor_to_image(
-                rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/gts.png",
-            )
-            write_tensor_to_image(
-                rearrange(ref_imgs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/inputs.png",
-            )
+            write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
+            write_tensor_to_disk(outputs, f"{self.tar_imgs}/gt.pt")
+            write_tensor_to_disk(outputs, f"{self.ref_imgs}/inputs.pt")
+            # write_tensor_to_image(
+            #     rearrange(outputs, "b v h w c-> (b h) (v w) c"),
+            #     f"{self.visual_dir}/outputs.png",
+            # )
+            # write_tensor_to_image(
+            #     rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
+            #     f"{self.visual_dir}/gts.png",
+            # )
+            # write_tensor_to_image(
+            #     rearrange(ref_imgs, "b v h w c-> (b h) (v w) c"),
+            #     f"{self.visual_dir}/inputs.png",
+            # )
 
         if (
             step % self.config.print_every == 0
@@ -327,7 +339,7 @@ class LVSMLauncher(Launcher):
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
         folder = "./data_processed/realestate10k/test/"
         for zoom_factor in self.config.test_zoom_factor:
-            dataset = EvalDataset(
+            dataset = EvalLatentDataset(
                 folder=folder,
                 patch_size=self.config.dataset_patch_size,
                 zoom_factor=zoom_factor,
@@ -354,6 +366,7 @@ class LVSMLauncher(Launcher):
             if self.config.use_torch_compile:
                 model = torch.compile(model)
             print(f"Model is initialized in rank {self.world_rank}")
+            print(f"I am alive!")
 
         # ------------- Setup Metrics. ------------- #
         psnr_fn = PeakSignalNoiseRatio(data_range=1.0).to(self.device)
@@ -518,7 +531,7 @@ if __name__ == "__main__":
                 test_n=10,
             ),
         ),
-    }
+    }    
     cfg = tyro.extras.overridable_config_cli(configs)
     launcher = LVSMLauncher(cfg)
     launcher.run()
