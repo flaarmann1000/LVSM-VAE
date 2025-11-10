@@ -296,10 +296,7 @@ def load_frames_from_meta_info(
         rel_image_path = frame["file_path"]
         abs_image_path = os.path.join(data_dir, rel_image_path)
 
-        image = torch.load(abs_image_path)        
-        if isinstance(image, torch.Tensor):
-            image = image.squeeze(0).permute(1, 2, 0).cpu().numpy()  # -> [H, W, C]
-    
+        image = torch.load(abs_image_path)             
 
         # image = imageio.imread(abs_image_path)[..., :3]
 
@@ -309,18 +306,18 @@ def load_frames_from_meta_info(
 
         per_image_zoom_factor = 1.0
 
+        # returns just image, K for factor = 1
         image, K = center_zoom_in_with_subpixel_accuracy(
             image,
             K_raw,
             per_image_zoom_factor,
         )
         
-        # image, K = resize_crop_with_subpixel_accuracy(image, K, patch_size)
-        image = torch.from_numpy(image)
-        image, K = resize_crop_latent(image, K)
-        image = image.permute(1, 2 , 0).cpu().numpy()
-
-        print(f"image shape: {image.shape}")
+        # image, K = resize_crop_with_subpixel_accuracy(image, K, patch_size)        
+        
+        # image, K = resize_crop_latent(image, K)  
+        image = image.squeeze(0)
+        image = image.permute(1, 2, 0) # [C,H,W] → [H,W,C]            
 
 
         c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv
@@ -570,7 +567,6 @@ if __name__ == "__main__":
     print(data["image"].shape, data["K"].shape, data["camtoworld"].shape)
 
     testset = EvalLatentDataset(folder="./data_processed/realestate10k/test/", verbose=True)
-    data = testset[0]
-    print(data["image"].shape)
+    data = testset[0]    
 
     torch.distributed.destroy_process_group()

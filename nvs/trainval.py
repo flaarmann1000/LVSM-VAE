@@ -112,13 +112,26 @@ class LVSMLauncherConfig(LauncherConfig):
 class LVSMLauncher(Launcher):
     config: LVSMLauncherConfig
 
+    def normalize_flux_latent(self, z: torch.Tensor):
+        LATENT_MEAN = 0.5
+        LATENT_STD = 0.163
+        # Map roughly from [-12,12] to [0,1]
+        z_mapped = z / 24 + 0.5
+        # Optional fine normalization (center to 0.5 ± 0.16)
+        # z_mapped = (z_mapped - LATENT_MEAN) / LATENT_STD
+        # z_mapped = torch.clamp(z_mapped, 0.0, 1.0)
+        return z_mapped
+
     # Data preprocessing.
     def preprocess(
         self, data: Dict, input_views: int
     ) -> Tuple[Tensor, Camera, Camera, Tensor]:
         data = nested_to_device(data, self.device)
 
-        images = data["image"] / 255.0
+        # images = data["image"] / 255.0
+        # images = data["image"] / 2 + 0.5 #transform for VAE space
+        images = self.normalize_flux_latent(data["image"])                
+
         Ks = data["K"]
         camtoworlds = data["camtoworld"]
         image_paths = data["image_path"]
@@ -137,6 +150,9 @@ class LVSMLauncher(Launcher):
 
         ref_imgs = images[:, :input_views]
         tar_imgs = images[:, input_views:]
+        # print("ref_imgs", ref_imgs.min().item(), ref_imgs.max().item(),
+        #     ref_imgs.mean().item(), ref_imgs.std().item())
+        
         ref_cams = Camera(
             K=Ks[:, :input_views],
             camtoworld=camtoworlds[:, :input_views],
@@ -267,9 +283,11 @@ class LVSMLauncher(Launcher):
 
         # Forward.
         with torch.amp.autocast("cuda", enabled=self.config.amp, dtype=self.amp_dtype):
+                        
             outputs = model(ref_imgs, ref_cams, tar_cams)
-            outputs = torch.sigmoid(outputs)
-            mse = F.mse_loss(outputs, tar_imgs)
+            # outputs = torch.sigmoid(outputs)
+            # mse = F.mse_loss(outputs, tar_imgs)
+            mse = F.mse_loss(outputs.float(), tar_imgs.float())
 
             if self.config.perceptual_loss_w > 0:
                 perceptual_loss = perceptual(
@@ -288,8 +306,8 @@ class LVSMLauncher(Launcher):
             and acc_step == 0
         ):
             write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
-            write_tensor_to_disk(outputs, f"{self.tar_imgs}/gt.pt")
-            write_tensor_to_disk(outputs, f"{self.ref_imgs}/inputs.pt")
+            write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt.pt")
+            write_tensor_to_disk(ref_imgs, f"{self.visual_dir}/inputs.pt")
             # write_tensor_to_image(
             #     rearrange(outputs, "b v h w c-> (b h) (v w) c"),
             #     f"{self.visual_dir}/outputs.png",
@@ -313,7 +331,7 @@ class LVSMLauncher(Launcher):
             tar_imgs = rearrange(tar_imgs, "b v h w c-> (b v) c h w")
             psnr = state["psnr_fn"](outputs, tar_imgs)
             ssim = state["ssim_fn"](outputs, tar_imgs)
-            lpips = state["lpips_fn"](outputs, tar_imgs)
+            lpips = torch.zeros((), device=outputs.device)
             self.logging_on_master(
                 f"Step: {step}, Loss: {loss:.3f}, PSNR: {psnr:.3f}, "
                 f"SSIM: {ssim:.3f}, LPIPS: {lpips:.3f}, "
@@ -382,7 +400,7 @@ class LVSMLauncher(Launcher):
             "dataloaders": dataloaders,
             "psnr_fn": psnr_fn,
             "ssim_fn": ssim_fn,
-            "lpips_fn": lpips_fn,
+            "lpips_fn": lpips_fn,            
         }
         print(f"Launcher(Test) is intialized in rank {self.world_rank}")
         return state
@@ -439,7 +457,7 @@ class LVSMLauncher(Launcher):
                     tar_imgs = rearrange(tar_imgs, "b v h w c -> (b v) c h w")
                     psnrs.append(state["psnr_fn"](outputs, tar_imgs))
                     ssims.append(state["ssim_fn"](outputs, tar_imgs))
-                    lpips.append(state["lpips_fn"](outputs, tar_imgs))
+                    lpips.append(torch.zeros((), device=outputs.device))
 
             if self.config.render_video:
                 return

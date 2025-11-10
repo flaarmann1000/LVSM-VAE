@@ -42,7 +42,8 @@ class LVSMDecoderOnlyModelConfig:
                 layer_norm_eps=1e-5,
                 batch_first=True,
                 norm_first=True,
-                bias=False,
+                # bias=False,
+                bias=True,
                 elementwise_affine=True,
                 norm_type="layer_norm",
                 modulation_activation=None,
@@ -55,8 +56,10 @@ class LVSMDecoderOnlyModelConfig:
         ),
     )
 
-    img_shape: Tuple[int, ...] = (256, 256, 3)
-    cam_shape: Tuple[int, ...] = (256, 256, 6)
+    img_shape: Tuple[int, ...] = (32, 32, 16)
+    cam_shape: Tuple[int, ...] = (32, 32, 6)
+    # img_shape: Tuple[int, ...] = (256, 256, 3)
+    # cam_shape: Tuple[int, ...] = (256, 256, 6)
     patch_size: int = 8
 
     # How the input rays are encoded.
