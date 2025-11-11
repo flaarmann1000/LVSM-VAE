@@ -79,7 +79,7 @@ class LVSMLauncherConfig(LauncherConfig):
     max_steps: int = 100_000  # override
     ckpt_every: int = 1000  # override
     print_every: int = 100
-    visual_every: int = 100
+    visual_every: int = 1000
     lr: float = 4e-4
     warmup_steps: int = 2500
 
@@ -280,7 +280,7 @@ class LVSMLauncher(Launcher):
         ):
             write_tensor_to_image(
                 rearrange(outputs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/outputs.png",
+                f"{self.visual_dir}/outputs{step}.png",
             )
             write_tensor_to_image(
                 rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
