@@ -131,6 +131,7 @@ class LVSMLauncher(Launcher):
         # images = data["image"] / 255.0
         # images = data["image"] / 2 + 0.5 #transform for VAE space
         images = self.normalize_flux_latent(data["image"])                
+        # images =  data["image"]
 
         Ks = data["K"]
         camtoworlds = data["camtoworld"]
@@ -206,6 +207,7 @@ class LVSMLauncher(Launcher):
             model = torch.compile(model)
         perceptual = Perceptual().to(self.device)
         print(f"Model is initialized in rank {self.world_rank}")
+        # print("Final bias mean:", model.output_layer.bias.mean().item())                    
 
         # ------------- Setup Optimizer. ------------- #
         # Paper A.1 "We use a weight decay of 0.05 on all parameters except
@@ -285,7 +287,9 @@ class LVSMLauncher(Launcher):
         with torch.amp.autocast("cuda", enabled=self.config.amp, dtype=self.amp_dtype):
                         
             outputs = model(ref_imgs, ref_cams, tar_cams)
-            # outputs = torch.sigmoid(outputs)
+            # print("forward mean/std - pre sigmoid:", outputs.mean().item(), outputs.std().item()) 
+            outputs = torch.sigmoid(outputs)
+            # print("forward mean/std - post sigmoid:", outputs.mean().item(), outputs.std().item()) 
             # mse = F.mse_loss(outputs, tar_imgs)
             mse = F.mse_loss(outputs.float(), tar_imgs.float())
 
@@ -305,6 +309,7 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
+            # write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs{step}.pt")
             write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
             write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt.pt")
             write_tensor_to_disk(ref_imgs, f"{self.visual_dir}/inputs.pt")

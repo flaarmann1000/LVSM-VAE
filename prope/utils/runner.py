@@ -339,7 +339,8 @@ class Launcher:
             for acc_step in range(self.config.acc):
                 # Train iteration.
                 loss = self.train_iteration(step, state, acc_step)
-                loss = loss / self.config.acc
+                loss = loss / self.config.acc                
+            
 
                 if loss.isnan():
                     if self.use_grad_scaler:
@@ -354,7 +355,7 @@ class Launcher:
                         )
                         exit()
 
-                # Backward.
+                # Backward.                
                 if self.use_grad_scaler:
                     grad_scaler.scale(loss).backward()
                 else:

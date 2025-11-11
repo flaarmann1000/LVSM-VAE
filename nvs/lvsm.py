@@ -42,8 +42,8 @@ class LVSMDecoderOnlyModelConfig:
                 layer_norm_eps=1e-5,
                 batch_first=True,
                 norm_first=True,
-                # bias=False,
-                bias=True,
+                bias=False,
+                # bias=True,
                 elementwise_affine=True,
                 norm_type="layer_norm",
                 modulation_activation=None,
@@ -114,9 +114,18 @@ class LVSMDecoderOnlyModel(nn.Module):
         )
         self.init_weights()
 
-    def init_weights(self):
+    def  init_weights(self):
         for idx, layer in enumerate(self.encoder.layers):
             layer.apply(self.init_layer_weights(idx))
+
+        # for m in (self.input_tokenizer, self.query_tokenizer):
+        #     nn.init.xavier_uniform_(m.weight)
+        #     if m.bias is not None:
+        #         nn.init.zeros_(m.bias)
+
+        # nn.init.xavier_uniform_(self.output_layer.weight)
+        # if self.output_layer.bias is not None:
+        #     nn.init.constant_(self.output_layer.bias, 0.5)
 
     def init_layer_weights(self, idx):
         # LVMS Paper A.1:
@@ -126,6 +135,11 @@ class LVSMDecoderOnlyModel(nn.Module):
         def _init_weights(m):
             if isinstance(m, nn.Linear):
                 nn.init.normal_(m.weight, mean=0, std=0.02 / (2 * (idx + 1)) ** 0.5)
+                # nn.init.normal_(m.weight, mean=0.0, std=0.02)        
+                # nn.init.zeros_(m.bias)           
+                            
+  
+
 
         return _init_weights
 
@@ -265,4 +279,4 @@ if __name__ == "__main__":
     with torch.autocast("cuda"):
         for _ in tqdm.trange(100):
             y = model(ref_imgs, ref_cams, tar_cams)
-        assert y.shape == (batch_size, tar_views, height, width, 3)
+        assert y.shape == (batch_size, tar_views, height, width, 3)    
