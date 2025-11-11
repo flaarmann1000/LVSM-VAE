@@ -85,7 +85,7 @@ class LVSMLauncherConfig(LauncherConfig):
     max_steps: int = 100_000  # override
     ckpt_every: int = 1000  # override
     print_every: int = 100
-    visual_every: int = 100
+    visual_every: int = 1000
     lr: float = 4e-4
     warmup_steps: int = 2500
 
@@ -94,7 +94,7 @@ class LVSMLauncherConfig(LauncherConfig):
     perceptual_loss_w: float = 0.0 # for now disabled for latent training
 
     # How many test scenes to run.
-    test_every: int = 10000  # override
+    test_every: int = 30000  # override
     test_n: Optional[int] = None
     test_input_views: int = 2
     test_supervise_views: int = 3
@@ -309,8 +309,8 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
-            # write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs{step}.pt")
-            write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
+            write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs{step}.pt")
+            # write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
             write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt.pt")
             write_tensor_to_disk(ref_imgs, f"{self.visual_dir}/inputs.pt")
             # write_tensor_to_image(
