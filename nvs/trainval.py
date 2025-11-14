@@ -303,8 +303,8 @@ class LVSMLauncher(Launcher):
             ssim = state["ssim_fn"](outputs, tar_imgs)
             lpips = state["lpips_fn"](outputs, tar_imgs)
             self.logging_on_master(
-                f"Step: {step}, Loss: {loss:.3f}, PSNR: {psnr:.3f}, "
-                f"SSIM: {ssim:.3f}, LPIPS: {lpips:.3f}, "
+                f"Step: {step}, Loss: {loss:.6f}, PSNR: {psnr:.6f}, "
+                f"SSIM: {ssim:.6f}, LPIPS: {lpips:.6f}, "
                 f"LR: {state['scheduler'].get_last_lr()[0]:.3e}"
             )
             self.writer.add_scalar("train/loss", loss, step)
