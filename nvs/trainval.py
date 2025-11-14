@@ -291,7 +291,13 @@ class LVSMLauncher(Launcher):
             outputs = torch.sigmoid(outputs)
             # print("forward mean/std - post sigmoid:", outputs.mean().item(), outputs.std().item()) 
             # mse = F.mse_loss(outputs, tar_imgs)
+            
             mse = F.mse_loss(outputs.float(), tar_imgs.float())
+            print(f"mse: {mse}")
+
+            # amp = 100.0
+            # mse = F.mse_loss(outputs.float()*amp, tar_imgs.float()*amp)
+            # mse = F.mse_loss(outputs.float(), tar_imgs.float(), reduction="sum")
 
             if self.config.perceptual_loss_w > 0:
                 perceptual_loss = perceptual(
@@ -331,6 +337,7 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
+            print(f"logging loss: {loss}")
             mse = F.mse_loss(outputs, tar_imgs)
             outputs = rearrange(outputs, "b v h w c-> (b v) c h w")
             tar_imgs = rearrange(tar_imgs, "b v h w c-> (b v) c h w")
@@ -338,7 +345,7 @@ class LVSMLauncher(Launcher):
             ssim = state["ssim_fn"](outputs, tar_imgs)
             lpips = torch.zeros((), device=outputs.device)
             self.logging_on_master(
-                f"Step: {step}, Loss: {loss:.3f}, PSNR: {psnr:.3f}, "
+                f"Step: {step}, Loss: {loss:.6f}, PSNR: {psnr:.3f}, "
                 f"SSIM: {ssim:.3f}, LPIPS: {lpips:.3f}, "
                 f"LR: {state['scheduler'].get_last_lr()[0]:.3e}"
             )
