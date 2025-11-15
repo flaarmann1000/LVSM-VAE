@@ -293,7 +293,7 @@ class LVSMLauncher(Launcher):
             # mse = F.mse_loss(outputs, tar_imgs)
             
             mse = F.mse_loss(outputs.float(), tar_imgs.float())
-            print(f"mse: {mse}")
+            # print(f"mse: {mse}")
 
             # amp = 100.0
             # mse = F.mse_loss(outputs.float()*amp, tar_imgs.float()*amp)
@@ -317,7 +317,7 @@ class LVSMLauncher(Launcher):
         ):
             write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs{step}.pt")
             # write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs.pt")
-            write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt.pt")
+            write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt{step}.pt")
             write_tensor_to_disk(ref_imgs, f"{self.visual_dir}/inputs.pt")
             # write_tensor_to_image(
             #     rearrange(outputs, "b v h w c-> (b h) (v w) c"),
