@@ -266,7 +266,7 @@ class LVSMLauncher(Launcher):
                 perceptual_loss = perceptual(
                     rearrange(outputs, "b v h w c -> (b v) c h w"),
                     rearrange(tar_imgs, "b v h w c -> (b v) c h w"),
-                )
+                )                
                 loss = mse + perceptual_loss * self.config.perceptual_loss_w
             else:
                 loss = mse
@@ -278,9 +278,10 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
+            torch.save(outputs,f"{self.visual_dir}/outputs{step}.pt" )
             write_tensor_to_image(
                 rearrange(outputs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/outputs{step}.png",
+                f"{self.visual_dir}/outputs{step}.png",                
             )
             write_tensor_to_image(
                 rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
@@ -305,12 +306,16 @@ class LVSMLauncher(Launcher):
             self.logging_on_master(
                 f"Step: {step}, Loss: {loss:.6f}, PSNR: {psnr:.6f}, "
                 f"SSIM: {ssim:.6f}, LPIPS: {lpips:.6f}, "
-                f"LR: {state['scheduler'].get_last_lr()[0]:.3e}"
+                f"LR: {state['scheduler'].get_last_lr()[0]:.3e},"
+                f"SSIM: {mse:.6f}, mse: {lpips:.6f}, "
+                f"SSIM: {perceptual_loss:.6f}, perceptual_loss: {lpips:.6f} "
             )
             self.writer.add_scalar("train/loss", loss, step)
             self.writer.add_scalar("train/psnr", psnr, step)
             self.writer.add_scalar("train/ssim", ssim, step)
             self.writer.add_scalar("train/lpips", lpips, step)
+            self.writer.add_scalar("train/mse", mse, step)
+            self.writer.add_scalar("train/perceptual_loss", perceptual_loss, step)
         return loss
 
     def test_initialize(
