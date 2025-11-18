@@ -60,7 +60,8 @@ class LVSMDecoderOnlyModelConfig:
     cam_shape: Tuple[int, ...] = (32, 32, 6)
     # img_shape: Tuple[int, ...] = (256, 256, 3)
     # cam_shape: Tuple[int, ...] = (256, 256, 6)
-    patch_size: int = 8
+    patch_size: int = 1
+    # patch_size: int = 8
 
     # How the input rays are encoded.
     ray_encoding: Literal["plucker", "camray", "none", "raymap"] = "plucker"
@@ -103,7 +104,10 @@ class LVSMDecoderOnlyModel(nn.Module):
             ),
             config.encoder.layer.d_model,
             bias=config.encoder.layer.bias,
-        )
+        )        
+
+        self.latent_norm = nn.LayerNorm(self.config.encoder.layer.d_model, elementwise_affine=True)
+        self.ray_norm = nn.LayerNorm(self.config.encoder.layer.d_model, elementwise_affine=True)
 
         self.encoder = self.config.encoder.setup()
 
@@ -111,6 +115,7 @@ class LVSMDecoderOnlyModel(nn.Module):
             config.encoder.layer.d_model,
             config.img_shape[-1] * config.patch_size**2,
             bias=config.encoder.layer.bias,
+            # bias=True,
         )
         self.init_weights()
 
@@ -200,7 +205,7 @@ class LVSMDecoderOnlyModel(nn.Module):
         # ref_rays: [B, V1, N2, DIM2]
         ref_rays = patchify(ref_rays, config.patch_size)
         # tar_rays: [B, V2, N2, DIM2]
-        tar_rays = patchify(tar_rays, config.patch_size)
+        tar_rays = patchify(tar_rays, config.patch_size)             
 
         # Tokenize into
         # x: [B*V2, V1*N1, DIM1]
@@ -210,6 +215,11 @@ class LVSMDecoderOnlyModel(nn.Module):
         q = self.query_tokenizer(tar_rays)
         q = rearrange(q, "b v2 n d -> (b v2) n d")
         q_tokens = q.shape[1]
+
+        # ADDED
+        # x = self.latent_norm(x)
+        # q = self.ray_norm(q)
+        # END ADDED
 
         # --- Prepare data for geomtry-aware self-attention ---
         ref_c2ws = repeat(ref_cams.camtoworld, "b v1 x y -> (b v2) v1 x y", v2=v2)

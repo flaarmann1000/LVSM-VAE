@@ -296,7 +296,12 @@ def load_frames_from_meta_info(
         rel_image_path = frame["file_path"]
         abs_image_path = os.path.join(data_dir, rel_image_path)
 
-        image = torch.load(abs_image_path)             
+        image = torch.load(abs_image_path)           
+
+
+        # THIS NEEDS TO BE REMOVED!
+        image = (image - 0.5) * 24 # temporarry undo normalization mapping
+
 
         # image = imageio.imread(abs_image_path)[..., :3]
 

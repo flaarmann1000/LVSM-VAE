@@ -67,7 +67,9 @@ def write_tensor_to_image(
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # Dataset config
-    dataset_patch_size: int = 256
+    # dataset_patch_size: int = 256
+    # dataset_patch_size: int = 32
+    dataset_patch_size: int = 1
     dataset_supervise_views: int = 6
     dataset_batch_scenes: int = 4
     train_zoom_factor: float = 1.0
@@ -151,8 +153,8 @@ class LVSMLauncher(Launcher):
 
         ref_imgs = images[:, :input_views]
         tar_imgs = images[:, input_views:]
-        # print("ref_imgs", ref_imgs.min().item(), ref_imgs.max().item(),
-        #     ref_imgs.mean().item(), ref_imgs.std().item())
+        print("ref_imgs", ref_imgs.min().item(), ref_imgs.max().item(),
+            ref_imgs.mean().item(), ref_imgs.std().item())
         
         ref_cams = Camera(
             K=Ks[:, :input_views],
@@ -214,7 +216,8 @@ class LVSMLauncher(Launcher):
         # the weights of LayerNorm layers."
         params_decay = {
             "params": [p for n, p in model.named_parameters() if "norm" not in n],
-            "weight_decay": 0.5,
+            # "weight_decay": 0.5,
+            "weight_decay": 0.05,
         }
         params_no_decay = {
             "params": [p for n, p in model.named_parameters() if "norm" in n],
@@ -287,8 +290,8 @@ class LVSMLauncher(Launcher):
         with torch.amp.autocast("cuda", enabled=self.config.amp, dtype=self.amp_dtype):
                         
             outputs = model(ref_imgs, ref_cams, tar_cams)
-            # print("forward mean/std - pre sigmoid:", outputs.mean().item(), outputs.std().item()) 
-            outputs = torch.sigmoid(outputs)
+            print("forward mean/std - pre sigmoid:", outputs.mean().item(), outputs.std().item()) 
+            # outputs = torch.sigmoid(outputs)
             # print("forward mean/std - post sigmoid:", outputs.mean().item(), outputs.std().item()) 
             # mse = F.mse_loss(outputs, tar_imgs)
             
