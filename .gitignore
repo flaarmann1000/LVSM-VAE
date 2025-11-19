@@ -132,3 +132,5 @@ data/
 .vscode
 assets/
 wandb/
+data/*
+wandb/*
