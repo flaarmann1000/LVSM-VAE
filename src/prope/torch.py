@@ -1,7 +1,7 @@
 # MIT License
 #
 # Copyright (c) Authors of
-# "Cameras as Relative Positional Encoding" https://arxiv.org/pdf/2507.10496
+# "PRoPE: Projective Positional Encoding for Multiview Transformers"
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
