@@ -184,13 +184,13 @@ class LVSMLauncher(Launcher):
         wandb.init(
         project="adlcv",   # <-- change to your project
         config=self.config.__dict__,
-        name=f"lvsm-decoder-only{self.world_rank}",
+        name=f"lvsm-decoder-only",
     )
 
         # ------------- Setup Model. ------------- #
         model = LVSMDecoderOnlyModel(self.config.model_config).to(self.device)
 
-        
+        wandb.watch(model, log="gradients", log_freq=500)
         # Apply torch.compile for performance optimization if enabled
         if self.config.use_torch_compile:
             model = torch.compile(model)
@@ -199,8 +199,6 @@ class LVSMLauncher(Launcher):
         else:
             perceptual = None
         print(f"Model is initialized in rank {self.world_rank}")
-
-        wandb.watch(model, log="gradients", log_freq=100)
 
         # ------------- Setup Optimizer. ------------- #
         # Paper A.1 "We use a weight decay of 0.05 on all parameters except
