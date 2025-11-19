@@ -42,6 +42,12 @@ We first download the [RealEstate10KSubset](https://drive.google.com/drive/folde
 `data`. Then we run [`src/data/gen_transforms.py`](src/data/gen_transforms.py) and [`src/data/data_processes.py`](src/data/data_preprocess.py) to
 convert the data into our data format.
 
+## Execute 
+
+```
+bash ./nvs.sh --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
+```
+
 ## Experiments
 
 - Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
