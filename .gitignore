@@ -128,3 +128,7 @@ compile_commands.json
 data_processed
 logs/
 results/
+data/
+.vscode
+assets/
+wandb/

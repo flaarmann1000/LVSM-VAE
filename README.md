@@ -36,6 +36,12 @@ output = prope_dot_product_attention(
 )
 ```
 
+## Dataset
+
+We first download the [RealEstate10KSubset](https://drive.google.com/drive/folders/1joiezNCyQK2BvWMnfwHJpm2V77c7iYGe) and save it into a folder
+`data`. Then we run [`src/data/gen_transforms.py`](src/data/gen_transforms.py) and [`src/data/data_processes.py`](src/data/data_preprocess.py) to
+convert the data into our data format.
+
 ## Experiments
 
 - Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
