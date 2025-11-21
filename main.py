@@ -3,6 +3,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
+import time
 
 import cv2
 import imageio.v2 as imageio
@@ -68,8 +69,8 @@ def write_tensor_to_image(
 class LVSMLauncherConfig(LauncherConfig):
     # Dataset config
     dataset_patch_size: int = 256
-    dataset_supervise_views: int = 1
-    dataset_batch_scenes: int = 8
+    dataset_supervise_views: int = 6
+    dataset_batch_scenes: int = 4
     train_zoom_factor: float = 1.0
     random_zoom: bool = False
 
@@ -82,7 +83,7 @@ class LVSMLauncherConfig(LauncherConfig):
     )
 
     # Training config
-    max_steps: int = 80000  # override
+    max_steps: int = 100000  # override
     ckpt_every: int = 1000  # override
     print_every: int = 100
     visual_every: int = 100
@@ -184,7 +185,7 @@ class LVSMLauncher(Launcher):
         wandb.init(
         project="adlcv",   # <-- change to your project
         config=self.config.__dict__,
-        name=f"lvsm-decoder-only",
+        name=f"lvsm-decoder-only-{self.config.model_config.ray_encoding}-{self.config.model_config.pos_enc}-{self.config.max_steps} steps",
     )
 
         # ------------- Setup Model. ------------- #
@@ -251,6 +252,11 @@ class LVSMLauncher(Launcher):
             "lpips_fn": lpips_fn,
         }
         print(f"Launcher(train) is intialized in rank {self.world_rank}")
+
+        self.start_time = time.time()
+        self.last_time = self.start_time
+
+
         return state
 
     def train_iteration(
@@ -338,6 +344,10 @@ class LVSMLauncher(Launcher):
             self.writer.add_scalar("train/ssim", ssim, step)
             self.writer.add_scalar("train/lpips", lpips, step)
 
+            now = time.time()
+            cur_total_time = now - self.last_time
+
+
             # Additional wandb logging
             wandb.log({
                 "train/loss": loss.item(),
@@ -345,6 +355,7 @@ class LVSMLauncher(Launcher):
                 "train/ssim": ssim.item(),
                 "train/lpips": lpips.item(),
                 "train/lr": state["scheduler"].get_last_lr()[0],
+                "train/cum_time_in_seconds": cur_total_time,
             }, step=step)
             
         return loss

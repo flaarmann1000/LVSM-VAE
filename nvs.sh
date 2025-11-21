@@ -45,8 +45,8 @@ while [[ $# -gt 0 ]]; do
       ;;
     -h|--help)
       echo "Usage: $0 --ray_encoding <ray_encoding> --pos_enc <pos_enc> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
-      echo "  --ray_encoding: plucker, camray, none, or raymap"
-      echo "  --pos_enc: prope, gta, or none"
+      echo "  --ray_encoding: PLUCKER, CAMRAY, NONE, or RAYMAP"
+      echo "  --pos_enc: PROPE, GTA, or NONE"
       echo "  --gpus: comma-separated GPU list (e.g., '0,1')"
       echo "  --test-zoom-in: space-separated zoom factors for testing (e.g., '3 5')"
       echo "  --test-context-views: space-separated context views for testing (e.g., '2 4 8 16')"
@@ -92,7 +92,7 @@ BASE_CMD=(
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
-    "--max_steps 80000 --test_every 5500"
+    "--max_steps 5800 --test_every 5500"
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${NAME}-${RAY_ENCODING}-${POS_ENC}"
