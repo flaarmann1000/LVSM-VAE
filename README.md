@@ -44,8 +44,15 @@ convert the data into our data format.
 
 ## Execute 
 
+#### Train Single model
 ```
 bash ./nvs.sh --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
+```
+
+#### Iteratively train multiple combinations
+Go to [execute_multiple_nvs.sh](execute_multiple_nvs.sh) and define the ray and pos encoding you wantto train in line 6. The execute: 
+```
+bash ./execute_multiple_nvs.sh --gpus "0"
 ```
 
 ## Experiments
