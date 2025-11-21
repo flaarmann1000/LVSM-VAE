@@ -59,3 +59,4 @@ bash ./execute_multiple_nvs.sh --gpus "0"
 
 - Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
 - Improve UniMatch on the task of Stereo Depth Estimation: To be released
+ 

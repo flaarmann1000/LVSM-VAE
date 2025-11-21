@@ -544,6 +544,12 @@ class LVSMLauncher(Launcher):
                     f"test/{label}_lpips": avg_lpips,
                     "test/step": step,
                     }, step=step)
+                
+                # Convert canvas tensor to numpy for wandb
+                canvas_np = (canvas.detach().cpu().numpy() * 255).astype(np.uint8)
+                wandb.log({
+                f"test/{step}_image": wandb.Image(canvas_np)
+                }, step=step)
 
 if __name__ == "__main__":
     """Example usage:
