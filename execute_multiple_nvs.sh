@@ -64,7 +64,7 @@ BASE_CMD_COMMON=(
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
-    "--max_steps 100000 --test_every 10000"
+    "--max_steps 100000 --test_every 80000"
 )
 
 
