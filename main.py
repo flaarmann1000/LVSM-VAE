@@ -20,6 +20,7 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 import logging
 
 from src.data.dataset import TrainDataset, EvalDataset
+from src.data.latent_dataset import EvalLatentDataset, TrainLatentDataset
 
 from src.models.lvsm_decoder_only import (
     Camera,
@@ -33,6 +34,9 @@ from src.prope.utils.functional import random_SO3
 from src.prope.utils.runner import Launcher, LauncherConfig, nested_to_device
 
 
+
+def write_tensor_to_disk(x: Tensor,path: str):
+    torch.save(x.cpu(), path)    
 
 def write_tensor_to_image(
     x: Tensor,
@@ -67,12 +71,15 @@ def write_tensor_to_image(
 
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
+    # model space config
+    model_space: str = "PX" # can be VAE or PX
+
     # Dataset config
-    dataset_patch_size: int = 256
+    dataset_patch_size: int = 256 # matters only for PX space
     dataset_supervise_views: int = 6
     dataset_batch_scenes: int = 4
-    train_zoom_factor: float = 1.0
-    random_zoom: bool = False
+    train_zoom_factor: float = 1.0 # matters only for PX space
+    random_zoom: bool = False # matters only for PX space
 
     # Optimization config
     use_torch_compile: bool = True
@@ -111,7 +118,7 @@ class LVSMLauncherConfig(LauncherConfig):
 
 
 class LVSMLauncher(Launcher):
-    config: LVSMLauncherConfig
+    config: LVSMLauncherConfig    
 
     # Data preprocessing.
     def preprocess(
@@ -119,7 +126,11 @@ class LVSMLauncher(Launcher):
     ) -> Tuple[Tensor, Camera, Camera, Tensor]:
         data = nested_to_device(data, self.device)
 
-        images = data["image"] / 255.0
+        if (self.config.model_space == "PX"):
+            images = data["image"] / 255.0
+        else:
+            images = (data["image"])
+        
         Ks = data["K"]
         camtoworlds = data["camtoworld"]
         image_paths = data["image_path"]
@@ -165,14 +176,22 @@ class LVSMLauncher(Launcher):
 
     def train_initialize(self) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
-        scenes = sorted(glob.glob("./data/data_processed/realestate10k/train/*"))
-        dataset = TrainDataset(
-            scenes,
-            patch_size=self.config.dataset_patch_size,
-            zoom_factor=self.config.train_zoom_factor,
-            random_zoom=self.config.random_zoom,
-            supervise_views=self.config.dataset_supervise_views,
-        )
+        if (self.config.model_space == "PX"):
+            scenes = sorted(glob.glob("./data/data_processed/realestate10k/train/*"))
+            dataset = TrainDataset(
+                scenes,
+                patch_size=self.config.dataset_patch_size,
+                zoom_factor=self.config.train_zoom_factor,
+                random_zoom=self.config.random_zoom,
+                supervise_views=self.config.dataset_supervise_views,
+            )
+        else:
+            scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/train/*"))
+            dataset = TrainLatentDataset(
+                scenes,
+                supervise_views=self.config.dataset_supervise_views,
+            )
+        
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=self.config.dataset_batch_scenes,
@@ -195,7 +214,7 @@ class LVSMLauncher(Launcher):
         # Apply torch.compile for performance optimization if enabled
         if self.config.use_torch_compile:
             model = torch.compile(model)
-        if self.config.perceptual_loss_w > 0:
+        if (self.config.perceptual_loss_w > 0) and (self.config.model_space == "PX"):
             perceptual = Perceptual().to(self.device)
         else:
             perceptual = None
@@ -283,10 +302,11 @@ class LVSMLauncher(Launcher):
         # Forward.
         with torch.amp.autocast("cuda", enabled=self.config.amp, dtype=self.amp_dtype):
             outputs = model(ref_imgs, ref_cams, tar_cams)
-            outputs = torch.sigmoid(outputs)
+            if (self.config.model_space == "PX"):
+                outputs = torch.sigmoid(outputs)
             mse = F.mse_loss(outputs, tar_imgs)
 
-            if self.config.perceptual_loss_w > 0:
+            if (self.config.perceptual_loss_w > 0) and (self.config.model_space == "PX"):
                 perceptual_loss = perceptual(
                     rearrange(outputs, "b v h w c -> (b v) c h w"),
                     rearrange(tar_imgs, "b v h w c -> (b v) c h w"),
@@ -302,18 +322,23 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
-            write_tensor_to_image(
-                rearrange(outputs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/outputs.png",
-            )
-            write_tensor_to_image(
-                rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/gts.png",
-            )
-            write_tensor_to_image(
-                rearrange(ref_imgs, "b v h w c-> (b h) (v w) c"),
-                f"{self.visual_dir}/inputs.png",
-            )
+            if self.config.model_space == "PX":
+                write_tensor_to_image(
+                    rearrange(outputs, "b v h w c-> (b h) (v w) c"),
+                    f"{self.visual_dir}/outputs{step}.png",
+                )
+                write_tensor_to_image(
+                    rearrange(tar_imgs, "b v h w c-> (b h) (v w) c"),
+                    f"{self.visual_dir}/gts{step}.png",
+                )
+                write_tensor_to_image(
+                    rearrange(ref_imgs, "b v h w c-> (b h) (v w) c"),
+                    f"{self.visual_dir}/inputs{step}.png",
+                )
+            else:
+                write_tensor_to_disk(outputs, f"{self.visual_dir}/outputs{step}.pt")                
+                write_tensor_to_disk(tar_imgs, f"{self.visual_dir}/gt{step}.pt")
+                write_tensor_to_disk(ref_imgs, f"{self.visual_dir}/inputs{step}.pt")
 
         if (
             self.config.visual_every > 0
@@ -321,8 +346,12 @@ class LVSMLauncher(Launcher):
             and self.world_rank == 0
             and acc_step == 0
         ):
-            wandb.log({f"test/output_after_{step}_steps": wandb.Image(outputs[0].detach().cpu().numpy())}, step=step)
-
+            if self.config.model_space == "PX":
+                wandb.log({f"test/output_after_{step}_steps": wandb.Image(outputs[0].detach().cpu().numpy())}, step=step)
+            else:
+                wandb.log({
+                    f"test/output_tensor_hist_{step}_steps": wandb.Histogram(outputs.detach().cpu().flatten())
+                }, step=step)
         if (
             step % self.config.print_every == 0
             and self.world_rank == 0
@@ -333,7 +362,10 @@ class LVSMLauncher(Launcher):
             tar_imgs = rearrange(tar_imgs, "b v h w c-> (b v) c h w")
             psnr = state["psnr_fn"](outputs, tar_imgs)
             ssim = state["ssim_fn"](outputs, tar_imgs)
-            lpips = state["lpips_fn"](outputs, tar_imgs)
+            if (self.config.model_space == "PX"):
+                lpips = state["lpips_fn"](outputs, tar_imgs)
+            else:
+                lpips = 0
             self.logging_on_master(
                 f"Step: {step}, Loss: {loss:.3f}, PSNR: {psnr:.3f}, "
                 f"SSIM: {ssim:.3f}, LPIPS: {lpips:.3f}, "
@@ -353,7 +385,7 @@ class LVSMLauncher(Launcher):
                 "train/loss": loss.item(),
                 "train/psnr": psnr.item(),
                 "train/ssim": ssim.item(),
-                "train/lpips": lpips.item(),
+                "train/lpips": lpips.item() if self.config.model_space == "PX" else 0,
                 "train/lr": state["scheduler"].get_last_lr()[0],
                 "train/cum_time_in_seconds": cur_total_time,
             }, step=step)
@@ -374,18 +406,30 @@ class LVSMLauncher(Launcher):
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
         folder = "./data/data_processed/realestate10k/test/"
         for zoom_factor in self.config.test_zoom_factor:
-            dataset = EvalDataset(
-                folder=folder,
-                patch_size=self.config.dataset_patch_size,
-                zoom_factor=zoom_factor,
-                first_n=self.config.test_n,
-                rank=self.world_rank,
-                world_size=self.world_size,
-                input_views=self.config.test_input_views,
-                supervise_views=self.config.test_supervise_views,
-                render_video=self.config.render_video,
-                test_index_fp=self.config.test_index_fp,
-            )
+            if (self.config.model_space == "PX"):
+                dataset = EvalDataset(
+                    folder=folder,
+                    patch_size=self.config.dataset_patch_size,
+                    zoom_factor=zoom_factor,
+                    first_n=self.config.test_n,
+                    rank=self.world_rank,
+                    world_size=self.world_size,
+                    input_views=self.config.test_input_views,
+                    supervise_views=self.config.test_supervise_views,
+                    render_video=self.config.render_video,
+                    test_index_fp=self.config.test_index_fp,
+                )
+            else:
+                dataset = EvalLatentDataset(
+                    folder=folder,                                        
+                    first_n=self.config.test_n,
+                    rank=self.world_rank,
+                    world_size=self.world_size,
+                    input_views=self.config.test_input_views,
+                    supervise_views=self.config.test_supervise_views,
+                    render_video=self.config.render_video,
+                    test_index_fp=self.config.test_index_fp,
+                )
             dataloaders[f"zoom{zoom_factor}"] = (
                 self.config.test_input_views,
                 torch.utils.data.DataLoader(
@@ -440,7 +484,8 @@ class LVSMLauncher(Launcher):
                     "cuda", enabled=self.config.amp, dtype=self.amp_dtype
                 ):
                     outputs = model(ref_imgs, ref_cams, tar_cams)
-                    outputs = torch.sigmoid(outputs)
+                    if (self.config.model_space == "PX"):
+                        outputs = torch.sigmoid(outputs)
 
                 if self.config.render_video:
                     assert outputs.shape[0] == 1
@@ -473,16 +518,22 @@ class LVSMLauncher(Launcher):
                     tar_imgs = rearrange(tar_imgs, "b v h w c -> (b v) c h w")
                     psnrs.append(state["psnr_fn"](outputs, tar_imgs))
                     ssims.append(state["ssim_fn"](outputs, tar_imgs))
-                    lpips.append(state["lpips_fn"](outputs, tar_imgs))
+                    if (self.config.model_space == "PX"):
+                        lpips.append(state["lpips_fn"](outputs, tar_imgs))
+                    else:
+                        lpips.append(0)
 
             if self.config.render_video:
                 return
 
             # dump canvas.
             canvas = torch.cat(canvas, dim=0)
-            write_tensor_to_image(
-                canvas, f"{self.test_dir}/rank{self.world_rank}_{label}views.png"
-            )
+            if self.config.model_space == "PX":
+                write_tensor_to_image(
+                    canvas, f"{self.test_dir}/rank{self.world_rank}_{label}views.png"
+                )
+            else:
+                write_tensor_to_disk(canvas, f"{self.test_dir}/rank{self.world_rank}_{label}views.pt")                
 
             def distributed_avg(data: List[float], name: str) -> float:
                 # collect metric from all ranks
@@ -556,7 +607,7 @@ if __name__ == "__main__":
 
     # 2GPUs dry run
     OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=2 \
-        nvs/trainval.py lvsm-dry-run --model_config.encoder.num_layers 2
+        main.py lvsm-dry-run --model_config.encoder.num_layers 2
     """
 
     import warnings
@@ -567,10 +618,11 @@ if __name__ == "__main__":
         "lvsm": (
             "feedforward large view synthesis model",
             LVSMLauncherConfig(),
-        ),
+        ),        
         "lvsm-dry-run": (
             "dry run",
             LVSMLauncherConfig(
+                model_space="PX",
                 amp=True,
                 amp_dtype="fp16",
                 dataset_batch_scenes=1,
@@ -581,6 +633,13 @@ if __name__ == "__main__":
         ),
     }
     cfg = tyro.extras.overridable_config_cli(configs)
+    
+    if cfg.model_space == "VAE":
+        # Override the defaults in cfg.model_config
+        cfg.model_config.img_shape = (32, 32, 16)
+        cfg.model_config.cam_shape = (32, 32, 6)
+        cfg.model_config.patch_size = 4
+    
     launcher = LVSMLauncher(cfg)
     launcher.run()
 
