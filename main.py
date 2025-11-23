@@ -33,6 +33,8 @@ from src.utils.perceptual import Perceptual
 from src.prope.utils.functional import random_SO3
 from src.prope.utils.runner import Launcher, LauncherConfig, nested_to_device
 
+from diffusers import AutoencoderKL
+
 
 
 def write_tensor_to_disk(x: Tensor,path: str):
@@ -68,7 +70,6 @@ def write_tensor_to_image(
         cv2.circle(image, point, 5, (255, 0, 0), -1)
     imageio.imsave(path, image)
 
-
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # model space config
@@ -94,7 +95,7 @@ class LVSMLauncherConfig(LauncherConfig):
     ckpt_every: int = 1000  # override
     print_every: int = 100
     visual_every: int = 100
-    visual_wandb_every: int = 10000
+    visual_wandb_every: int = 100
     lr: float = 4e-4
     warmup_steps: int = 2500
 
@@ -119,6 +120,27 @@ class LVSMLauncherConfig(LauncherConfig):
 
 class LVSMLauncher(Launcher):
     config: LVSMLauncherConfig    
+
+    if torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    vae32 = AutoencoderKL.from_pretrained(
+        "black-forest-labs/FLUX.1-dev",
+        subfolder="vae"    
+    ).to(device)  
+
+    def decode_tensors(self, t: Tensor) -> Tensor:
+        t = t.squeeze().to(self.device).float()        
+        t = t.permute(2,0,1).unsqueeze(0)
+        with torch.no_grad():    
+            out = self.vae32.decode(t).sample
+        out = (out + 1) / 2
+        out = out.clamp(0, 1)
+        out = out.permute(0,2,3,1)
+        return out
+
 
     # Data preprocessing.
     def preprocess(
@@ -186,7 +208,8 @@ class LVSMLauncher(Launcher):
                 supervise_views=self.config.dataset_supervise_views,
             )
         else:
-            scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/train/*"))
+            scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/overfit/*"))
+            # scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/train/*"))
             dataset = TrainLatentDataset(
                 scenes,
                 supervise_views=self.config.dataset_supervise_views,
@@ -348,10 +371,11 @@ class LVSMLauncher(Launcher):
         ):
             if self.config.model_space == "PX":
                 wandb.log({f"test/output_after_{step}_steps": wandb.Image(outputs[0].detach().cpu().numpy())}, step=step)
-            else:
-                wandb.log({
-                    f"test/output_tensor_hist_{step}_steps": wandb.Histogram(outputs.detach().cpu().flatten())
-                }, step=step)
+            else:                                         
+                img = self.decode_tensors(outputs[0].detach())                
+                wandb.log({f"test/output_after_{step}_steps": wandb.Image(img.cpu().numpy())}, step=step)
+                target = self.decode_tensors(tar_imgs[0].detach())                
+                wandb.log({f"test/target_after_{step}_steps": wandb.Image(target.cpu().numpy())}, step=step)                
         if (
             step % self.config.print_every == 0
             and self.world_rank == 0
@@ -404,7 +428,10 @@ class LVSMLauncher(Launcher):
                 self.config.test_input_views == 2
                 and self.config.test_supervise_views == 3
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
-        folder = "./data/data_processed/realestate10k/test/"
+        if (self.config.model_space == "PX"):
+            folder = "./data/data_processed/realestate10k/test/"
+        else:
+            folder = "./data/data_processed/realestate10k_latent/test/"
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
                 dataset = EvalDataset(
@@ -485,7 +512,7 @@ class LVSMLauncher(Launcher):
                 ):
                     outputs = model(ref_imgs, ref_cams, tar_cams)
                     if (self.config.model_space == "PX"):
-                        outputs = torch.sigmoid(outputs)
+                        outputs = torch.sigmoid(outputs)                                            
 
                 if self.config.render_video:
                     assert outputs.shape[0] == 1
@@ -506,8 +533,9 @@ class LVSMLauncher(Launcher):
                             torch.cat([tar_imgs, outputs], dim=3),
                             "b v h w c -> (b h) (v w) c",
                         )
+                        channels = 3 if self.config.model_space == "PX" else 16
                         canvas_mid = torch.ones(
-                            len(canvas_left), 20, 3, device=self.device
+                            len(canvas_left), 20, channels, device=self.device
                         )
                         canvas.append(
                             torch.cat([canvas_left, canvas_mid, canvas_right], dim=1)
@@ -531,9 +559,7 @@ class LVSMLauncher(Launcher):
             if self.config.model_space == "PX":
                 write_tensor_to_image(
                     canvas, f"{self.test_dir}/rank{self.world_rank}_{label}views.png"
-                )
-            else:
-                write_tensor_to_disk(canvas, f"{self.test_dir}/rank{self.world_rank}_{label}views.pt")                
+                )        
 
             def distributed_avg(data: List[float], name: str) -> float:
                 # collect metric from all ranks
@@ -564,7 +590,10 @@ class LVSMLauncher(Launcher):
                 return avg, len(collected)
 
             avg_psnr, n_total = distributed_avg(psnrs, "psnr")
-            avg_lpips, n_total = distributed_avg(lpips, "lpips")
+            if self.config.model_space == "PX":
+                avg_lpips, n_total = distributed_avg(lpips, "lpips")
+            else:
+                avg_lpips, n_total = (0,0)
             avg_ssim, n_total = distributed_avg(ssims, "ssim")
 
             self.logging_on_master(
@@ -597,10 +626,11 @@ class LVSMLauncher(Launcher):
                     }, step=step)
                 
                 # Convert canvas tensor to numpy for wandb
-                canvas_np = (canvas.detach().cpu().numpy() * 255).astype(np.uint8)
-                wandb.log({
-                f"test/{step}_image": wandb.Image(canvas_np)
-                }, step=step)
+                if self.config.model_space == "PX":
+                    canvas_np = (canvas.detach().cpu().numpy() * 255).astype(np.uint8)
+                    wandb.log({
+                    f"test/{step}_image": wandb.Image(canvas_np)
+                    }, step=step)
 
 if __name__ == "__main__":
     """Example usage:
@@ -638,7 +668,7 @@ if __name__ == "__main__":
         # Override the defaults in cfg.model_config
         cfg.model_config.img_shape = (32, 32, 16)
         cfg.model_config.cam_shape = (32, 32, 6)
-        cfg.model_config.patch_size = 4
+        cfg.model_config.patch_size = 8
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
