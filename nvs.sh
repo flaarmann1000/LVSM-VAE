@@ -19,6 +19,10 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --overfit)
+      OVERFIT="$2"
+      shift 2
+      ;;
     --model_space)
       MODEL_SPACE="$2"
       shift 2
@@ -66,6 +70,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Overfit default: 0
+OVERFIT="${OVERFIT:-0}"
+
+
 # Check required arguments
 if [ -z "$MODEL_SPACE" ]; then
   echo "Error: --model_space is required"
@@ -95,6 +103,7 @@ BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
     "--model_space ${MODEL_SPACE}"
+    "--overfit ${OVERFIT}"
     "--amp --amp_dtype fp16"
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
@@ -103,7 +112,8 @@ BASE_CMD=(
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
-    "--max_steps 5800 --test_every 5500"
+    # "--max_steps 5800 --test_every 5500"
+    "--max_steps 15000 --test_every 2000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${NAME}-${RAY_ENCODING}-${POS_ENC}"
@@ -111,6 +121,7 @@ BASE_CMD=(
 
 echo "NAME: ${NAME}"
 echo "MODEL_SPACE: ${MODEL_SPACE}"
+echo "OVERFIT: ${OVERFIT}"
 echo "RAY_ENCODING: ${RAY_ENCODING}"
 echo "POS_ENC: ${POS_ENC}"
 

@@ -73,6 +73,7 @@ def write_tensor_to_image(
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # model space config
+    overfit: int = 0
     model_space: str = "PX" # can be VAE or PX
 
     # Dataset config
@@ -94,8 +95,8 @@ class LVSMLauncherConfig(LauncherConfig):
     max_steps: int = 100000  # override
     ckpt_every: int = 1000  # override
     print_every: int = 100
-    visual_every: int = 100
-    visual_wandb_every: int = 100
+    visual_every: int = 1000
+    visual_wandb_every: int = 1000
     lr: float = 4e-4
     warmup_steps: int = 2500
 
@@ -198,8 +199,10 @@ class LVSMLauncher(Launcher):
 
     def train_initialize(self) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
-        if (self.config.model_space == "PX"):
-            scenes = sorted(glob.glob("./data/data_processed/realestate10k/train/*"))
+        root = "overfit" if (self.config.overfit) else "train"
+        
+        if (self.config.model_space == "PX"):            
+            scenes = sorted(glob.glob(f"./data/data_processed/realestate10k/{root}/*"))
             dataset = TrainDataset(
                 scenes,
                 patch_size=self.config.dataset_patch_size,
@@ -208,8 +211,7 @@ class LVSMLauncher(Launcher):
                 supervise_views=self.config.dataset_supervise_views,
             )
         else:
-            scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/overfit/*"))
-            # scenes = sorted(glob.glob("./data/data_processed/realestate10k_latent/train/*"))
+            scenes = sorted(glob.glob(f"./data/data_processed/realestate10k_latent/{root}/*"))            
             dataset = TrainLatentDataset(
                 scenes,
                 supervise_views=self.config.dataset_supervise_views,
@@ -374,8 +376,8 @@ class LVSMLauncher(Launcher):
             else:                                         
                 img = self.decode_tensors(outputs[0].detach())                
                 wandb.log({f"test/output_after_{step}_steps": wandb.Image(img.cpu().numpy())}, step=step)
-                target = self.decode_tensors(tar_imgs[0].detach())                
-                wandb.log({f"test/target_after_{step}_steps": wandb.Image(target.cpu().numpy())}, step=step)                
+                # target = self.decode_tensors(tar_imgs[0].detach())                
+                # wandb.log({f"test/target_after_{step}_steps": wandb.Image(target.cpu().numpy())}, step=step)                
         if (
             step % self.config.print_every == 0
             and self.world_rank == 0

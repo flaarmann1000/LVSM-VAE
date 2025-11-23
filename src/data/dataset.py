@@ -324,25 +324,74 @@ class TrainDataset(Dataset):
     def __len__(self):
         return len(self.data_dirs)
 
+    # From: https://github.com/Haian-Jin/LVSM/blob/ebeff4989a3e1ec38fcd51ae24919d0eadf38c8f/data/dataset_scene.py#L133C1-L149C29
+    # adjusted for overfit scene
     def _select_views(
         self, n_frames: int, min_frame_dist: int = 25, max_frame_dist: int = 100
     ) -> Optional[List[int]]:
-        # From: https://github.com/Haian-Jin/LVSM/blob/ebeff4989a3e1ec38fcd51ae24919d0eadf38c8f/data/dataset_scene.py#L133C1-L149C29
-        if n_frames < self.input_views + self.supervise_views:
-            return None
-        max_frame_dist = min(n_frames - 1, max_frame_dist)
+         # We need N = input + supervised views
+        N = self.input_views + self.supervise_views
+
+        # If scene is too small → pick the first N frames
+        if n_frames <= N:
+            return list(range(n_frames))
+
+        # Adjust distances for tiny scenes
+        if max_frame_dist is None:
+            max_frame_dist = n_frames - 1
+
+        max_frame_dist = min(max_frame_dist, n_frames - 1)
+        min_frame_dist = min(min_frame_dist, max_frame_dist)
+
+        # If distances collapse → fallback: sample N frames anywhere
         if max_frame_dist <= min_frame_dist:
-            return None
+            indices = random.sample(range(n_frames), N)
+            return sorted(indices)
+
+        # Sample frame distance
         frame_dist = random.randint(min_frame_dist, max_frame_dist)
-        if n_frames <= frame_dist:
-            return None
+
+        # If even this fails → fallback
+        if frame_dist >= n_frames:
+            indices = random.sample(range(n_frames), N)
+            return sorted(indices)
+
+        # Sample endpoints
         start_index = random.randint(0, n_frames - frame_dist - 1)
         end_index = start_index + frame_dist
-        supervise_indices = random.sample(
-            range(start_index + 1, end_index), self.supervise_views
-        )
+
+        # Range of supervised views
+        mid_range = list(range(start_index + 1, end_index))
+
+        # If the middle range is too small → fallback
+        if len(mid_range) < self.supervise_views:
+            indices = random.sample(range(n_frames), N)
+            return sorted(indices)
+
+        supervise_indices = random.sample(mid_range, self.supervise_views)
+
         indices = [start_index, end_index] + supervise_indices
         return indices
+
+    # def _select_views(
+    #     self, n_frames: int, min_frame_dist: int = 25, max_frame_dist: int = 100
+    # ) -> Optional[List[int]]:
+    #     # From: https://github.com/Haian-Jin/LVSM/blob/ebeff4989a3e1ec38fcd51ae24919d0eadf38c8f/data/dataset_scene.py#L133C1-L149C29
+    #     if n_frames < self.input_views + self.supervise_views:
+    #         return None
+    #     max_frame_dist = min(n_frames - 1, max_frame_dist)
+    #     if max_frame_dist <= min_frame_dist:
+    #         return None
+    #     frame_dist = random.randint(min_frame_dist, max_frame_dist)
+    #     if n_frames <= frame_dist:
+    #         return None
+    #     start_index = random.randint(0, n_frames - frame_dist - 1)
+    #     end_index = start_index + frame_dist
+    #     supervise_indices = random.sample(
+    #         range(start_index + 1, end_index), self.supervise_views
+    #     )
+    #     indices = [start_index, end_index] + supervise_indices
+    #     return indices
 
     def __getitem__(self, _: Any) -> Dict[str, Any]:
         # Choose a random scene
