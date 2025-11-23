@@ -128,9 +128,9 @@ compile_commands.json
 data_processed
 logs/
 results/
-data/
+/data/
 .vscode
 assets/
 wandb/
-data/*
+/data/*
 wandb/*
