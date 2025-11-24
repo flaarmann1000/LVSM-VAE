@@ -452,7 +452,7 @@ class EvalDataset(Dataset):
         input_views: int = 2,
         supervise_views: int = 3,
         render_video: bool = False,
-        test_index_fp: Optional[str] = None,
+        test_index_fp: Optional[str] = None,        
     ):
         super().__init__()
         self.patch_size = patch_size
@@ -586,5 +586,4 @@ if __name__ == "__main__":
 
     if USE_DISTRIBUTED:
         torch.distributed.destroy_process_group()
-
 
