@@ -90,11 +90,11 @@ class LVSMDecoderOnlyModel(nn.Module):
         config = self.config
         batch_size, v = cams.camtoworld.shape[:2]
         cam_dtype = cams.camtoworld.dtype
-        device = cams.camtoworld.device
+        device = cams.camtoworld.device               
 
         if config.ray_encoding == "none":
             rays = repeat(self.shared_rays, "h w c -> b v h w c", b=batch_size, v=v)
-        else:
+        else:            
             # Preprocess cameras into rays.
             downscale = config.img_shape[0] // config.cam_shape[0]
             rays = camera_to_raymap(
@@ -108,7 +108,7 @@ class LVSMDecoderOnlyModel(nn.Module):
                 ),
                 height=cams.height,
                 width=cams.width,
-                downscale=downscale,
+                downscale=downscale,                
             )
             if config.ray_encoding in ["plucker", "camray"]:
                 rays = raymap_to_plucker(rays)

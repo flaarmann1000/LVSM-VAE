@@ -182,6 +182,20 @@ def load_and_maybe_update_meta_info(json_path: str) -> Tuple[bool, Dict]:
 
     return True, meta_info
 
+def upscale(image, K, factor):    
+    image = F.interpolate(
+        image.permute(2,0,1).unsqueeze(0),   # (H,W,C) -> (1,C,H,W)
+        scale_factor=factor,
+        mode="bilinear",
+        align_corners=False
+    ).squeeze(0).permute(1,2,0)              # back to (H,W,C)
+
+    # scale intrinsics
+    K[:2, :2] *= factor
+    K[0, 2]   *= factor
+    K[1, 2]   *= factor
+    
+    return image, K
 
 def load_frames_from_meta_info(
     data_dir: str,
@@ -191,6 +205,7 @@ def load_frames_from_meta_info(
     # zoom_factor: float = 1.0,
     # random_zoom: bool = False,
     camera_pose_only: bool = False,
+    upscale_factor: int = 1
 ) -> Union[Dict[str, Any], np.ndarray]:
     blender2opencv = np.array(
         [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
@@ -245,8 +260,10 @@ def load_frames_from_meta_info(
         image = image.squeeze(0)
         image = image.permute(1, 2, 0) # [C,H,W] → [H,W,C]            
 
+        image, K = upscale(image, K, upscale_factor)
 
-        c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv
+
+        c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv        
 
         images.append(image)
         Ks.append(K)
@@ -272,6 +289,7 @@ class TrainLatentDataset(Dataset):
         input_views: int = 2,
         supervise_views: int = 6,
         verbose: bool = False,
+        upscale_factor: int = 1
     ):
         super().__init__()
         # No list/dict in the dataset, which would cause "memory leak"
@@ -284,6 +302,7 @@ class TrainLatentDataset(Dataset):
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.verbose = verbose
+        self.upscale_factor = upscale_factor
         if self.verbose:
             print(f"[TrainDataset] Initialized with {len(self.data_dirs)} scenes.")
         print("training on latent dataset")
@@ -351,7 +370,7 @@ class TrainLatentDataset(Dataset):
         # Select views
         n_frames = len(meta_info["frames"])
         # frame_ids = self._select_views(n_frames)
-        frame_ids = self._select_views(n_frames, min_frame_dist=1, max_frame_dist=None) # adjust for tiny scenes
+        frame_ids = self._select_views(n_frames, min_frame_dist=1, max_frame_dist=None) # adjust for tiny scenes        
         if frame_ids is None:
             return self.__getitem__(None)
 
@@ -365,6 +384,7 @@ class TrainLatentDataset(Dataset):
             data_dir,
             meta_info,
             frame_ids,
+            upscale_factor=self.upscale_factor
             # patch_size=self.patch_size,
             # zoom_factor=self.zoom_factor,
             # random_zoom=self.random_zoom,
@@ -377,7 +397,7 @@ class TrainLatentDataset(Dataset):
         )
         K = torch.from_numpy(loaded["K"]).float()
         image = torch.from_numpy(loaded["image"]).float()
-        image_path = loaded["image_path"]
+        image_path = loaded["image_path"]        
 
         return {
             "camtoworld": camtoworld,
@@ -402,6 +422,7 @@ class EvalLatentDataset(Dataset):
         supervise_views: int = 3,
         render_video: bool = False,
         test_index_fp: Optional[str] = None,
+        upscale_factor: int = 1
     ):
         super().__init__()
         # self.patch_size = patch_size
@@ -409,6 +430,7 @@ class EvalLatentDataset(Dataset):
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.render_video = render_video
+        self.upscale_factor = upscale_factor
 
         if test_index_fp is not None:
             # pre defined test index file
@@ -481,6 +503,7 @@ class EvalLatentDataset(Dataset):
                 data_dir,
                 meta_info,
                 frame_ids,
+                upscale_factor=self.upscale_factor
                 # patch_size=self.patch_size,
                 # zoom_factor=self.zoom_factor,
             )

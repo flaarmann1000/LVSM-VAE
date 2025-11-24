@@ -19,6 +19,10 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --decode)
+      DECODE="$2"
+      shift 2
+      ;;
     --overfit)
       OVERFIT="$2"
       shift 2
@@ -49,7 +53,11 @@ while [[ $# -gt 0 ]]; do
       ;;
     --test-render-video)
       TEST_RENDER_VIDEO=true
-      shift 1
+      shift 1          
+      ;;
+    --upscale)
+      UPSCALE="$2"
+      shift 2
       ;;
     -h|--help)
       echo "Usage: $0 --ray_encoding <ray_encoding> --pos_enc <pos_enc> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
@@ -70,8 +78,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Overfit default: 0
+# defaults
 OVERFIT="${OVERFIT:-0}"
+DECODE="${DECODE:-1}"
+UPSCALE="${UPSCALE:-1}"
+
 
 
 # Check required arguments
@@ -79,6 +90,7 @@ if [ -z "$MODEL_SPACE" ]; then
   echo "Error: --model_space is required"
   exit 1
 fi
+
 
 if [ -z "$RAY_ENCODING" ]; then
   echo "Error: --ray_encoding is required"
@@ -102,8 +114,10 @@ NAME="release-${NGPUS}gpus-b8-s1-80k"
 BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
+    "--decode ${DECODE}"
     "--model_space ${MODEL_SPACE}"
     "--overfit ${OVERFIT}"
+    "--upscale ${UPSCALE}"
     "--amp --amp_dtype fp16"
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
@@ -113,7 +127,7 @@ BASE_CMD=(
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
     # "--max_steps 5800 --test_every 5500"
-    "--max_steps 15000 --test_every 2000"  
+    "--max_steps 15000 --test_every 1000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"
