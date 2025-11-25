@@ -704,7 +704,8 @@ if __name__ == "__main__":
         s = cfg.upscale
         cfg.model_config.img_shape = (32*s, 32*s, 16)
         cfg.model_config.cam_shape = (32*s, 32*s, 6)
-        cfg.model_config.patch_size = 8
+        cfg.model_config.patch_size = 1
+        # cfg.model_config.patch_size = 8
 
     if cfg.overfit:
         cfg.test_n = 1
