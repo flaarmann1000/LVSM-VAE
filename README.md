@@ -7,6 +7,7 @@ This is the official repo for the paper "Cameras as Relative Positional Encoding
 
 **TL;DR**: Language models and multi-view transformers must both bind “positional” information to input tokens, in terms of sequence position for LLMs and camera parameters for multi-view transformers. We present a study on camera conditioning that includes absolute positional encodings (e.g, raymaps), relative pose encodings (e.g., GTA), and a new method (PRoPE) uses *relative projective* transformation to capture 3D relationship between image tokens.
 
+
 ## Implementations
 
 The implementation of PRoPE is extremely simple and efficient. We provide standalone, single-file implementations for both JAX and PyTorch in [`prope/jax.py`](prope/jax.py) and [`prope/torch.py`](prope/torch.py). 
