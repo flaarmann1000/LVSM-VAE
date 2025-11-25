@@ -235,6 +235,8 @@ def load_frames_from_meta_info(
     zoom_factor: float = 1.0,
     random_zoom: bool = False,
     camera_pose_only: bool = False,
+    upscale_factor: int = 1,
+
 ) -> Union[Dict[str, Any], np.ndarray]:
     blender2opencv = np.array(
         [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
@@ -281,6 +283,8 @@ def load_frames_from_meta_info(
         )
         image, K = resize_crop_with_subpixel_accuracy(image, K, patch_size)
 
+        image, K = upscale(image, K, upscale_factor)
+
         c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv
 
         images.append(image)
@@ -295,6 +299,36 @@ def load_frames_from_meta_info(
         "image_path": abs_image_paths,
     }
 
+def upscale(image: np.ndarray, K: np.ndarray, factor: int):
+    """
+    image: H x W x 3 (uint8 or float)
+    K: 3x3
+    factor: 2, 4, ...
+
+    Returns new_image, new_K
+    """
+    if factor == 1:
+        return image, K
+
+    H, W = image.shape[:2]
+
+    image = torch.from_numpy(image).permute(2,0,1).unsqueeze(0).float()  # 1,C,H,W
+    image = F.interpolate(
+        image,
+        scale_factor=factor,
+        mode="bilinear",
+        align_corners=False
+    )
+    image = image.squeeze(0).permute(1,2,0).numpy()  # H_up, W_up, C
+
+    # scale intrinsics
+    K_new = K.copy()
+    K_new[:2, :2] *= factor
+    K_new[0, 2] *= factor
+    K_new[1, 2] *= factor
+
+    return image, K_new
+
 
 class TrainDataset(Dataset):
     def __init__(
@@ -306,6 +340,7 @@ class TrainDataset(Dataset):
         input_views: int = 2,
         supervise_views: int = 6,
         verbose: bool = False,
+        upscale_factor: int = 1
     ):
         super().__init__()
         # No list/dict in the dataset, which would cause "memory leak"
@@ -318,6 +353,7 @@ class TrainDataset(Dataset):
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.verbose = verbose
+        self.upscale_factor = upscale_factor
         if self.verbose:
             print(f"[TrainDataset] Initialized with {len(self.data_dirs)} scenes.")
 
@@ -420,6 +456,8 @@ class TrainDataset(Dataset):
             patch_size=self.patch_size,
             zoom_factor=self.zoom_factor,
             random_zoom=self.random_zoom,
+            upscale_factor = self.upscale_factor,
+
         )
 
         # Preprocess poses
@@ -453,6 +491,7 @@ class EvalDataset(Dataset):
         supervise_views: int = 3,
         render_video: bool = False,
         test_index_fp: Optional[str] = None,        
+        upscale_factor: int = 1
     ):
         super().__init__()
         self.patch_size = patch_size
@@ -460,6 +499,7 @@ class EvalDataset(Dataset):
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.render_video = render_video
+        self.upscale_factor = upscale_factor
 
         if test_index_fp is not None:
             # pre defined test index file
@@ -534,6 +574,7 @@ class EvalDataset(Dataset):
                 frame_ids,
                 patch_size=self.patch_size,
                 zoom_factor=self.zoom_factor,
+                upscale_factor = self.upscale_factor
             )
         except Exception as e:
             print(f"Error in {data_dir}: {e}. frame_ids: {frame_ids}")
