@@ -30,8 +30,8 @@ def write_overfit_index(scene_id: str, assets_root: Path):
 
     index_data = {
         scene_id: {
-            "context": [0, 3],
-            "target": [2]
+            "context": [0, 4],
+            "target": [1,2,3]
         }
     }
 
