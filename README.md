@@ -65,3 +65,17 @@ bash ./execute_multiple_nvs.sh --gpus "0"
 - Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
 - Improve UniMatch on the task of Stereo Depth Estimation: To be released
  
+
+## Dockerfile
+
+We created a dockerfile for easy usage on an external SSH server
+
+1. Build Docker file
+```
+docker build -t lvsm .
+```
+
+2. Run it all files in workspace
+```
+docker run -it -v $(pwd):/workspace lvsm bash
+```
