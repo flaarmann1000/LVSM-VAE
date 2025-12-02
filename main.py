@@ -215,7 +215,7 @@ class LVSMLauncher(Launcher):
 
     def train_initialize(self) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
-        root = "overfit" if (self.config.overfit) else "train"
+        root = f"overfit-{self.config.overfit}" if (self.config.overfit) else "train"
         
         if (self.config.model_space == "PX"):            
             scenes = sorted(glob.glob(f"./data/data_processed/realestate10k/{root}/*"))
@@ -451,7 +451,7 @@ class LVSMLauncher(Launcher):
                 self.config.test_input_views == 2
                 and self.config.test_supervise_views == 3
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
-        root = "overfit" if (self.config.overfit) else "test"
+        root = f"overfit-{self.config.overfit}" if (self.config.overfit) else "test"
         if (self.config.model_space == "PX"):
             folder = f"./data/data_processed/realestate10k/{root}/"
         else:
@@ -704,12 +704,13 @@ if __name__ == "__main__":
         s = cfg.upscale
         cfg.model_config.img_shape = (32*s, 32*s, 16)
         cfg.model_config.cam_shape = (32*s, 32*s, 6)
-        cfg.model_config.patch_size = 1
+        # cfg.model_config.patch_size = 1
+        cfg.model_config.patch_size = 2
         # cfg.model_config.patch_size = 8
 
     if cfg.overfit:
         cfg.test_n = 1
-        cfg.test_index_fp= "overfitting_index_re10k.json"
+        cfg.test_index_fp= f"overfitting_index_re10k-{cfg.overfit}.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
