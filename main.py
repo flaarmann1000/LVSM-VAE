@@ -721,7 +721,7 @@ if __name__ == "__main__":
         # cfg.model_config.patch_size = 8
 
     if cfg.overfit:
-        cfg.test_n = 1
+        cfg.test_n = None
         cfg.test_index_fp= f"overfitting_index_re10k-{cfg.overfit}.json"
     
     launcher = LVSMLauncher(cfg)
