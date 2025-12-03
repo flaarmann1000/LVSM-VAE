@@ -364,7 +364,7 @@ class TrainLatentDataset(Dataset):
         data_dir = str(np.random.choice(self.data_dirs), encoding="utf-8")
         valid, meta_info = load_and_maybe_update_meta_info(
             os.path.join(data_dir, "transforms.json")
-        )
+        )        
         assert valid, f"Invalid scene: {data_dir}"
 
         # Select views

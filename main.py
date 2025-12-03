@@ -215,9 +215,10 @@ class LVSMLauncher(Launcher):
 
     def train_initialize(self) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
-        root = f"overfit-{self.config.overfit}" if (self.config.overfit) else "train"
+        
         
         if (self.config.model_space == "PX"):            
+            root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
             scenes = sorted(glob.glob(f"./data/data_processed/realestate10k/{root}/*"))
             dataset = TrainDataset(
                 scenes,
@@ -227,6 +228,7 @@ class LVSMLauncher(Launcher):
                 supervise_views=self.config.dataset_supervise_views,
             )
         else:
+            root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
             scenes = sorted(glob.glob(f"./data/data_processed/realestate10k_latent/{root}/*"))            
             dataset = TrainLatentDataset(
                 scenes,
@@ -451,10 +453,12 @@ class LVSMLauncher(Launcher):
                 self.config.test_input_views == 2
                 and self.config.test_supervise_views == 3
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
-        root = f"overfit-{self.config.overfit}" if (self.config.overfit) else "test"
+        
         if (self.config.model_space == "PX"):
+            root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
             folder = f"./data/data_processed/realestate10k/{root}/"
         else:
+            root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
             folder = f"./data/data_processed/realestate10k_latent/{root}/"
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
@@ -524,7 +528,7 @@ class LVSMLauncher(Launcher):
         model.eval()
         
         for label, (input_views, dataloader) in dataloaders.items():            
-            psnrs, lpips, ssims = [], [], []
+            psnrs, lpips, ssims, mses = [], [], [], []
             canvas = []  # for visualization
             for data in tqdm.tqdm(dataloader, desc="Testing"):                
                 processed = self.preprocess(data, input_views=input_views)                
@@ -539,6 +543,10 @@ class LVSMLauncher(Launcher):
                     outputs = model(ref_imgs, ref_cams, tar_cams)                
                 if (self.config.model_space == "PX"):
                     outputs = torch.sigmoid(outputs)
+
+                mse = F.mse_loss(outputs, tar_imgs)
+                mses.append(mse.item())
+                
                                 
                 inference_time =  time.time() - self.test_start                 
 
@@ -627,6 +635,7 @@ class LVSMLauncher(Launcher):
             else:
                 avg_lpips, n_total = (0,0)
             avg_ssim, n_total = distributed_avg(ssims, "ssim")
+            avg_mse, n_total = distributed_avg(mses, "mses")
 
             self.logging_on_master(
                 f"PSNR{label}: {avg_psnr:.3f}, SSIM{label}: {avg_ssim:.3f}, LPIPS{label}: {avg_lpips:.3f} "
@@ -637,6 +646,7 @@ class LVSMLauncher(Launcher):
                 self.writer.add_scalar(f"test/psnr{label}", avg_psnr, step)
                 self.writer.add_scalar(f"test/ssim{label}", avg_ssim, step)
                 self.writer.add_scalar(f"test/lpips{label}", avg_lpips, step)
+                self.writer.add_scalar(f"test/mse{label}", avg_mse, step)
                 self.writer.add_scalar(f"test/inference_time{label}", inference_time, step)
                 with open(f"{self.test_dir}/metrics.json", "w") as f:
                     json.dump(
@@ -644,18 +654,20 @@ class LVSMLauncher(Launcher):
                             "label": label,
                             "step": step,
                             "n_total": n_total,
-                            "psnr": avg_psnr,
-                            "ssim": avg_ssim,
-                            "lpips": avg_lpips,
+                            "psnr_px": avg_psnr,
+                            "ssim_px": avg_ssim,
+                            "lpips_px": avg_lpips,
+                            "mse": avg_mse,
                             "inference_time": inference_time,
                         },
                         f,
                     )
 
                 wandb.log({
-                    f"test/{label}_psnr": avg_psnr,
-                    f"test/{label}_ssim": avg_ssim,
-                    f"test/{label}_lpips": avg_lpips,
+                    f"test/{label}_psnr_px": avg_psnr,
+                    f"test/{label}_ssim_px": avg_ssim,
+                    f"test/{label}_lpips_px": avg_lpips,
+                    f"test/{label}_mse": avg_mse,
                     f"test/{label}_inference_time_in_seconds": inference_time,
                     "test/step": step,
                     }, step=step)
