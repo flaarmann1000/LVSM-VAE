@@ -4,186 +4,306 @@ import shutil
 from pathlib import Path
 from tqdm import tqdm
 
-# Source roots
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
 PIXEL_SRC_ROOT  = Path("./data/data_processed/realestate10k/train")
 LATENT_SRC_ROOT = Path("./data/data_processed/realestate10k_latent/train")
 
-# Destination roots for different overfit variants
-PIXEL_DST_ROOTS = {
-    1: Path("./data/data_processed/realestate10k/overfit-1"),
-    2: Path("./data/data_processed/realestate10k/overfit-2"),
-    3: Path("./data/data_processed/realestate10k/overfit-3"),
+PIXEL_TRAIN_ROOTS = {
+    1: Path("./data/data_processed/realestate10k/train-overfit-1"),
+    2: Path("./data/data_processed/realestate10k/train-overfit-2"),
+    3: Path("./data/data_processed/realestate10k/train-overfit-3"),
+    4: Path("./data/data_processed/realestate10k/train-overfit-4"),
 }
-LATENT_DST_ROOTS = {
-    1: Path("./data/data_processed/realestate10k_latent/overfit-1"),
-    2: Path("./data/data_processed/realestate10k_latent/overfit-2"),
-    3: Path("./data/data_processed/realestate10k_latent/overfit-3"),
+PIXEL_TEST_ROOTS = {
+    1: Path("./data/data_processed/realestate10k/test-overfit-1"),
+    2: Path("./data/data_processed/realestate10k/test-overfit-2"),
+    3: Path("./data/data_processed/realestate10k/test-overfit-3"),
+    4: Path("./data/data_processed/realestate10k/test-overfit-4"),
+}
+
+LATENT_TRAIN_ROOTS = {
+    1: Path("./data/data_processed/realestate10k_latent/train-overfit-1"),
+    2: Path("./data/data_processed/realestate10k_latent/train-overfit-2"),
+    3: Path("./data/data_processed/realestate10k_latent/train-overfit-3"),
+    4: Path("./data/data_processed/realestate10k_latent/train-overfit-4"),
+}
+LATENT_TEST_ROOTS = {
+    1: Path("./data/data_processed/realestate10k_latent/test-overfit-1"),
+    2: Path("./data/data_processed/realestate10k_latent/test-overfit-2"),
+    3: Path("./data/data_processed/realestate10k_latent/test-overfit-3"),
+    4: Path("./data/data_processed/realestate10k_latent/test-overfit-4"),
 }
 
 ASSETS_ROOT = Path("./assets")
 
-FRAME_STRIDE = 15   # for overfit-1 filtering
+# Overfit-1 params
+FRAME_STRIDE = 15
 MAX_FRAMES  = 5
 
+# Overfit-4 params
+TEST_SEQ_LEN = 5
+N_TRAIN_SCENES_V4 = 10
+N_SEEN_TEST_SCENES_V4 = 2
+N_UNSEEN_TEST_SCENES_V4 = 2
 
-# ---------- INDEX WRITER ----------
+
+# ============================================================
+# INDEX WRITER
+# ============================================================
 
 def write_overfit_index(version: int, scene_ids, assets_root: Path):
     """
     Writes:
+
         assets/overfitting_index_re10k-<version>.json
 
-    Each scene_id gets exactly:
-      "context": [0, 4]
-      "target":  [1, 2, 3]
+    Contains ONLY test scenes.
     """
-    if not scene_ids:
-        print(f"No scenes given for index v{version}, skipping.")
-        return
-
-    assets_root.mkdir(parents=True, exist_ok=True)
     fp = assets_root / f"overfitting_index_re10k-{version}.json"
+    fp.parent.mkdir(parents=True, exist_ok=True)
 
-    index_data = {
-        scene_id: {
+    data = {
+        sid: {
             "context": [0, 4],
-            "target": [1, 2, 3],
+            "target": [1, 2, 3]
         }
-        for scene_id in scene_ids
+        for sid in scene_ids
     }
 
     with open(fp, "w") as f:
-        json.dump(index_data, f, indent=2)
+        json.dump(data, f, indent=2)
 
-    print(f"Saved index file (v{version}): {fp}")
-    print(f"  scenes: {scene_ids}")
+    print(f"Wrote index file v{version} → {fp}")
+    print("  Test scenes:", scene_ids)
 
 
-# ---------- SCENE PROCESSING ----------
+# ============================================================
+# FRAME COPY HELPERS
+# ============================================================
 
-def filter_scene(src_scene: Path, dst_scene: Path, latent: bool = False):
+def copy_frames(src_scene: Path, dst_scene: Path, frame_indices=None):
     """
-    overfit-1 filtering:
-    Copy every N-th image/.pt file and filter transforms.json accordingly.
-    latent=True → expects .pt files instead of .png
+    Copies selected frames, or all frames when frame_indices=None.
+    Writes a new transforms.json.
     """
-    dst_images = dst_scene / "images"
-    dst_images.mkdir(parents=True, exist_ok=True)
-
-    with open(src_scene / "transforms.json", "r") as f:
+    with open(src_scene / "transforms.json") as f:
         meta = json.load(f)
 
     frames = meta["frames"]
-    filtered_frames = frames[::FRAME_STRIDE]
-    filtered_frames = filtered_frames[:MAX_FRAMES]
+    dst_images = dst_scene / "images"
+    dst_images.mkdir(parents=True, exist_ok=True)
 
-    print(f" Copying {len(filtered_frames)} frames → {dst_images}")
+    new_frames = []
 
-    for frame in tqdm(filtered_frames):
+    if frame_indices is None:
+        selected = enumerate(frames)
+    else:
+        selected = [(i, frames[i]) for i in frame_indices]
+
+    for _, frame in selected:
+        frame = dict(frame)
+
         src_file = src_scene / frame["file_path"]
         dst_file = dst_images / src_file.name
         shutil.copy2(src_file, dst_file)
 
-        frame["file_path"] = f"images/{src_file.name}"
+        frame["file_path"] = f"./images/{src_file.name}"
+        new_frames.append(frame)
 
-    meta["frames"] = filtered_frames
+    meta["frames"] = new_frames
 
     with open(dst_scene / "transforms.json", "w") as f:
         json.dump(meta, f, indent=2)
 
-    print(f"Saved: {dst_scene / 'transforms.json'}")
+
+def filter_scene_overfit1(src_scene: Path, dst_scene: Path):
+    """overfit-1: every 15th frame, max 5 frames."""
+    with open(src_scene / "transforms.json") as f:
+        meta = json.load(f)
+
+    frames = meta["frames"]
+    chosen = frames[::FRAME_STRIDE][:MAX_FRAMES]
+    idxs = [frames.index(f) for f in chosen]
+
+    copy_frames(src_scene, dst_scene, idxs)
 
 
 def copy_entire_scene(src_scene: Path, dst_scene: Path):
-    """
-    overfit-2 / overfit-3 copying:
-    Copy the entire scene folder (all files, all frames) without modifying transforms.json.
-    """
-    print(f"Copying entire scene: {src_scene.name} → {dst_scene}")
-    shutil.copytree(src_scene, dst_scene, dirs_exist_ok=True)
-    print(f"Completed copy: {dst_scene}")
+    copy_frames(src_scene, dst_scene, None)
 
 
-def process_scenes(src_root: Path, dst_root: Path, n_scenes: int, filtered: bool, latent: bool):
-    """
-    Process the first n_scenes from src_root into dst_root.
+# ============================================================
+# OVERFIT 1 / 2 / 3
+# ============================================================
 
-    - If filtered=True: applies overfit-1 logic (FRAME_STRIDE + MAX_FRAMES) on each scene.
-    - If filtered=False: copies the entire scene directory.
+def build_overfit_simple(src_root: Path, train_root: Path, test_root: Path,
+                         n_scenes: int, filtered: bool):
+    """Build train-overfit-X/ test-overfit-X for versions 1–3."""
+    train_root.mkdir(parents=True, exist_ok=True)
+    test_root.mkdir(parents=True, exist_ok=True)
 
-    Returns:
-        List of processed scene_ids (folder names).
-    """
     scene_dirs = sorted([d for d in src_root.iterdir() if d.is_dir()])
-    if not scene_dirs:
-        print(f"No scenes found in: {src_root}")
-        return []
+    selected = scene_dirs[:n_scenes]
+    train_ids = []
 
-    selected_scenes = scene_dirs[:n_scenes]
-    processed_scene_ids = []
+    for scene in selected:
+        sid = scene.name
+        train_ids.append(sid)
+        print(f"[simple] Train scene:", sid)
 
-    for scene in selected_scenes:
-        scene_id = scene.name
-        processed_scene_ids.append(scene_id)
-        print(f"Processing scene: {scene_id}")
-
-        dst_scene = dst_root / scene_id
-        dst_scene.mkdir(parents=True, exist_ok=True)
+        dst = train_root / sid
+        dst.mkdir(parents=True, exist_ok=True)
 
         if filtered:
-            filter_scene(scene, dst_scene, latent=latent)
+            filter_scene_overfit1(scene, dst)
         else:
-            copy_entire_scene(scene, dst_scene)
+            copy_entire_scene(scene, dst)
 
-        print(f"Completed scene: {scene_id}\n")
+    # test folder stays empty for versions 1–3
+    return [], train_ids  # (test_ids, train_ids)
 
-    return processed_scene_ids
+
+# ============================================================
+# OVERFIT-4 BUILD
+# ============================================================
+
+def build_overfit_4(src_root: Path, train_root: Path, test_root: Path,
+                    all_scene_ids):
+    train_root.mkdir(parents=True, exist_ok=True)
+    test_root.mkdir(parents=True, exist_ok=True)
+
+    train_ids = all_scene_ids[:N_TRAIN_SCENES_V4]
+    seen_ids  = train_ids[:N_SEEN_TEST_SCENES_V4]
+    unseen_ids = all_scene_ids[
+        N_TRAIN_SCENES_V4 : N_TRAIN_SCENES_V4 + N_UNSEEN_TEST_SCENES_V4
+    ]
+
+    # --------------------
+    # TRAIN
+    # --------------------
+    for sid in train_ids:
+        src = src_root / sid
+        dst = train_root / sid
+        dst.mkdir(parents=True, exist_ok=True)
+
+        with open(src / "transforms.json") as f:
+            meta = json.load(f)
+        n = len(meta["frames"])
+
+        if sid in seen_ids:
+            holdout = list(range(max(0, n - TEST_SEQ_LEN), n))
+            keep = [i for i in range(n) if i not in holdout]
+        else:
+            keep = list(range(n))
+
+        copy_frames(src, dst, keep)
+
+    # --------------------
+    # TEST (seen)
+    # --------------------
+    for sid in seen_ids:
+        src = src_root / sid
+        dst = test_root / sid
+        dst.mkdir(parents=True, exist_ok=True)
+
+        with open(src / "transforms.json") as f:
+            meta = json.load(f)
+        n = len(meta["frames"])
+
+        test_idx = list(range(max(0, n - TEST_SEQ_LEN), n))
+        copy_frames(src, dst, test_idx)
+
+    # --------------------
+    # TEST (unseen)
+    # --------------------
+    for sid in unseen_ids:
+        src = src_root / sid
+        dst = test_root / sid
+        dst.mkdir(parents=True, exist_ok=True)
+
+        with open(src / "transforms.json") as f:
+            meta = json.load(f)
+        n = len(meta["frames"])
+
+        test_idx = list(range(min(TEST_SEQ_LEN, n)))
+        copy_frames(src, dst, test_idx)
+
+    return seen_ids + unseen_ids, train_ids  # (test_ids, train_ids)
 
 
-# ---------- MAIN ----------
+# ============================================================
+# MAIN
+# ============================================================
 
 if __name__ == "__main__":
-    # Ensure destination roots exist
-    for root in PIXEL_DST_ROOTS.values():
-        root.mkdir(parents=True, exist_ok=True)
-    for root in LATENT_DST_ROOTS.values():
-        root.mkdir(parents=True, exist_ok=True)
 
-    # ----- OVERFIT-1: original behavior, first scene only, filtered -----
-    print("\n===== OVERFIT-1 (filtered first scene) =====")
-    print("\n----- PIXEL DATASET -----")
-    process_scenes(PIXEL_SRC_ROOT, PIXEL_DST_ROOTS[1], n_scenes=1, filtered=True, latent=False)
+    # ------------------
+    # OVERFIT-1
+    # ------------------
+    print("\n===== OVERFIT-1 =====")
+    test_ids, train_ids = build_overfit_simple(
+        PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[1], PIXEL_TEST_ROOTS[1],
+        n_scenes=1, filtered=True
+    )
+    test_ids, latent_train = build_overfit_simple(
+        LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[1], LATENT_TEST_ROOTS[1],
+        n_scenes=1, filtered=True
+    )
+    write_overfit_index(1, [], ASSETS_ROOT)  # no test scenes
 
-    print("\n----- LATENT DATASET -----")
-    scenes_lat_1 = process_scenes(LATENT_SRC_ROOT, LATENT_DST_ROOTS[1], n_scenes=1, filtered=True, latent=True)
+    # ------------------
+    # OVERFIT-2
+    # ------------------
+    print("\n===== OVERFIT-2 =====")
+    test_ids, train_ids = build_overfit_simple(
+        PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[2], PIXEL_TEST_ROOTS[2],
+        n_scenes=1, filtered=False
+    )
+    test_ids, latent_train = build_overfit_simple(
+        LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[2], LATENT_TEST_ROOTS[2],
+        n_scenes=1, filtered=False
+    )
+    write_overfit_index(2, [], ASSETS_ROOT)
 
-    # Index v1: first scene only
-    if scenes_lat_1:
-        write_overfit_index(1, [scenes_lat_1[0]], ASSETS_ROOT)
+    # ------------------
+    # OVERFIT-3
+    # ------------------
+    print("\n===== OVERFIT-3 =====")
+    test_ids, train_ids = build_overfit_simple(
+        PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[3], PIXEL_TEST_ROOTS[3],
+        n_scenes=3, filtered=False
+    )
+    test_ids, latent_train = build_overfit_simple(
+        LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[3], LATENT_TEST_ROOTS[3],
+        n_scenes=3, filtered=False
+    )
+    write_overfit_index(3, [], ASSETS_ROOT)
 
-    # ----- OVERFIT-2: entire first scene -----
-    print("\n===== OVERFIT-2 (entire first scene) =====")
-    print("\n----- PIXEL DATASET -----")
-    process_scenes(PIXEL_SRC_ROOT, PIXEL_DST_ROOTS[2], n_scenes=1, filtered=False, latent=False)
+    # ------------------
+    # OVERFIT-4
+    # ------------------
+    print("\n===== OVERFIT-4 =====")
 
-    print("\n----- LATENT DATASET -----")
-    scenes_lat_2 = process_scenes(LATENT_SRC_ROOT, LATENT_DST_ROOTS[2], n_scenes=1, filtered=False, latent=True)
+    # canonical ordering from latent dataset
+    all_latent_ids = sorted([d.name for d in LATENT_SRC_ROOT.iterdir() if d.is_dir()])
 
-    # Index v2: identical to v1 (same single scene id)
-    if scenes_lat_2:
-        # scenes_lat_2[0] should be the same as scenes_lat_1[0] given sorted scenes
-        write_overfit_index(2, [scenes_lat_2[0]], ASSETS_ROOT)
+    test_ids_pixel, train_ids_pixel = build_overfit_4(
+        PIXEL_SRC_ROOT,
+        PIXEL_TRAIN_ROOTS[4],
+        PIXEL_TEST_ROOTS[4],
+        all_latent_ids
+    )
+    test_ids_latent, train_ids_latent = build_overfit_4(
+        LATENT_SRC_ROOT,
+        LATENT_TRAIN_ROOTS[4],
+        LATENT_TEST_ROOTS[4],
+        all_latent_ids
+    )
 
-    # ----- OVERFIT-3: first 3 scenes (entire scenes) -----
-    print("\n===== OVERFIT-3 (first 3 full scenes) =====")
-    print("\n----- PIXEL DATASET -----")
-    process_scenes(PIXEL_SRC_ROOT, PIXEL_DST_ROOTS[3], n_scenes=3, filtered=False, latent=False)
+    # write index for test scenes only
+    write_overfit_index(4, test_ids_latent, ASSETS_ROOT)
 
-    print("\n----- LATENT DATASET -----")
-    scenes_lat_3 = process_scenes(LATENT_SRC_ROOT, LATENT_DST_ROOTS[3], n_scenes=3, filtered=False, latent=True)
-
-    # Index v3: all three scene ids
-    if scenes_lat_3:
-        write_overfit_index(3, scenes_lat_3, ASSETS_ROOT)
-
-    print("\nDone! Overfit-1 / -2 / -3 datasets and index files created.")
+    print("\nAll overfit datasets built successfully!\n")
