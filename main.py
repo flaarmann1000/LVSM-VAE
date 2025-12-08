@@ -294,7 +294,10 @@ class LVSMLauncher(Launcher):
         #     ]
         # )
 
-        scheduler = None
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer,
+            lr_lambda=lambda step: 1.0  # keep LR constant
+        )
 
 
         # ------------- Setup Metrics. ------------- #
