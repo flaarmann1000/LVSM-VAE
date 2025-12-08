@@ -280,19 +280,22 @@ class LVSMLauncher(Launcher):
         )
 
         # ------------- Setup Scheduler. ------------- #
-        scheduler = torch.optim.lr_scheduler.ChainedScheduler(
-            [
-                torch.optim.lr_scheduler.LinearLR(
-                    optimizer,
-                    start_factor=0.01,
-                    total_iters=self.config.warmup_steps,
-                ),
-                torch.optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer,
-                    T_max=self.config.max_steps - self.config.warmup_steps,
-                ),
-            ]
-        )
+        # scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+        #     [
+        #         torch.optim.lr_scheduler.LinearLR(
+        #             optimizer,
+        #             start_factor=0.01,
+        #             total_iters=self.config.warmup_steps,
+        #         ),
+        #         torch.optim.lr_scheduler.CosineAnnealingLR(
+        #             optimizer,
+        #             T_max=self.config.max_steps - self.config.warmup_steps,
+        #         ),
+        #     ]
+        # )
+
+        scheduler = None
+
 
         # ------------- Setup Metrics. ------------- #
         psnr_fn = PeakSignalNoiseRatio(data_range=1.0).to(self.device)
