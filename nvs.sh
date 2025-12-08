@@ -127,7 +127,7 @@ BASE_CMD=(
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
     # "--max_steps 5800 --test_every 5500"
-    "--max_steps 15000 --test_every 100"  
+    "--max_steps 80000 --test_every 5000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"
