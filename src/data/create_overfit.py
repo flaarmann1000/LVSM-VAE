@@ -60,7 +60,8 @@ def write_overfit_index(version: int, scene_ids, assets_root: Path):
 
         assets/overfitting_index_re10k-<version>.json
 
-    Contains ONLY test scenes.
+    For v1–3: scene_ids are the (latent) train/test scenes.
+    For v4:   scene_ids are the latent TEST scenes (seen + unseen).
     """
     fp = assets_root / f"overfitting_index_re10k-{version}.json"
     fp.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +78,7 @@ def write_overfit_index(version: int, scene_ids, assets_root: Path):
         json.dump(data, f, indent=2)
 
     print(f"Wrote index file v{version} → {fp}")
-    print("  Test scenes:", scene_ids)
+    print("  scenes:", scene_ids)
 
 
 # ============================================================
@@ -141,29 +142,41 @@ def copy_entire_scene(src_scene: Path, dst_scene: Path):
 
 def build_overfit_simple(src_root: Path, train_root: Path, test_root: Path,
                          n_scenes: int, filtered: bool):
-    """Build train-overfit-X/ test-overfit-X for versions 1–3."""
+    """
+    Build train-overfit-X/ and test-overfit-X/ for versions 1–3.
+
+    For v1–3 we mimic the original behavior:
+    - same scenes & same content are used for both train and test.
+    """
     train_root.mkdir(parents=True, exist_ok=True)
     test_root.mkdir(parents=True, exist_ok=True)
 
     scene_dirs = sorted([d for d in src_root.iterdir() if d.is_dir()])
     selected = scene_dirs[:n_scenes]
-    train_ids = []
+    scene_ids = []
 
     for scene in selected:
         sid = scene.name
-        train_ids.append(sid)
-        print(f"[simple] Train scene:", sid)
+        scene_ids.append(sid)
+        print(f"[simple] scene: {sid}")
 
-        dst = train_root / sid
-        dst.mkdir(parents=True, exist_ok=True)
+        # train copy
+        dst_train = train_root / sid
+        dst_train.mkdir(parents=True, exist_ok=True)
+
+        # test copy (same content for v1–3)
+        dst_test = test_root / sid
+        dst_test.mkdir(parents=True, exist_ok=True)
 
         if filtered:
-            filter_scene_overfit1(scene, dst)
+            filter_scene_overfit1(scene, dst_train)
+            filter_scene_overfit1(scene, dst_test)
         else:
-            copy_entire_scene(scene, dst)
+            copy_entire_scene(scene, dst_train)
+            copy_entire_scene(scene, dst_test)
 
-    # test folder stays empty for versions 1–3
-    return [], train_ids  # (test_ids, train_ids)
+    # For v1–3, test_ids == train_ids == scene_ids
+    return scene_ids, scene_ids  # (test_ids, train_ids)
 
 
 # ============================================================
@@ -244,51 +257,51 @@ if __name__ == "__main__":
     # OVERFIT-1
     # ------------------
     print("\n===== OVERFIT-1 =====")
-    _, train_ids_1_pixel = build_overfit_simple(
+    test_ids_1_pixel, train_ids_1_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[1], PIXEL_TEST_ROOTS[1],
         n_scenes=1, filtered=True
     )
-    test_ids_1, train_ids_1 = build_overfit_simple(
+    test_ids_1_latent, train_ids_1_latent = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[1], LATENT_TEST_ROOTS[1],
         n_scenes=1, filtered=True
     )
 
-    # original behavior: index contains *first scene only*
-    write_overfit_index(1, train_ids_1, ASSETS_ROOT)
+    # original behavior: index contains *first latent scene only*
+    write_overfit_index(1, train_ids_1_latent, ASSETS_ROOT)
 
 
     # ------------------
     # OVERFIT-2
     # ------------------
     print("\n===== OVERFIT-2 =====")
-    _, train_ids_2_pixel = build_overfit_simple(
+    test_ids_2_pixel, train_ids_2_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[2], PIXEL_TEST_ROOTS[2],
         n_scenes=1, filtered=False
     )
-    _, train_ids_2 = build_overfit_simple(
+    test_ids_2_latent, train_ids_2_latent = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[2], LATENT_TEST_ROOTS[2],
         n_scenes=1, filtered=False
     )
 
     # original behavior: index identical to v1 (same scene id)
-    write_overfit_index(2, train_ids_2, ASSETS_ROOT)
+    write_overfit_index(2, train_ids_2_latent, ASSETS_ROOT)
 
 
     # ------------------
     # OVERFIT-3
     # ------------------
     print("\n===== OVERFIT-3 =====")
-    _, train_ids_3_pixel = build_overfit_simple(
+    test_ids_3_pixel, train_ids_3_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[3], PIXEL_TEST_ROOTS[3],
         n_scenes=3, filtered=False
     )
-    _, train_ids_3 = build_overfit_simple(
+    test_ids_3_latent, train_ids_3_latent = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[3], LATENT_TEST_ROOTS[3],
         n_scenes=3, filtered=False
     )
 
-    # original behavior: index contains all three scene ids
-    write_overfit_index(3, train_ids_3, ASSETS_ROOT)
+    # original behavior: index contains all three latent scene ids
+    write_overfit_index(3, train_ids_3_latent, ASSETS_ROOT)
 
 
     # ------------------
@@ -299,20 +312,22 @@ if __name__ == "__main__":
     # canonical ordering from latent dataset
     all_latent_ids = sorted([d.name for d in LATENT_SRC_ROOT.iterdir() if d.is_dir()])
 
-    test_ids_pixel, train_ids_pixel = build_overfit_4(
+    # if you truly want pixel & latent to use exactly the same scene IDs,
+    # we reuse all_latent_ids for both (assuming sets match on disk)
+    test_ids_pixel_4, train_ids_pixel_4 = build_overfit_4(
         PIXEL_SRC_ROOT,
         PIXEL_TRAIN_ROOTS[4],
         PIXEL_TEST_ROOTS[4],
         all_latent_ids
     )
-    test_ids_latent, train_ids_latent = build_overfit_4(
+    test_ids_latent_4, train_ids_latent_4 = build_overfit_4(
         LATENT_SRC_ROOT,
         LATENT_TRAIN_ROOTS[4],
         LATENT_TEST_ROOTS[4],
         all_latent_ids
     )
 
-    # write index for test scenes only
-    write_overfit_index(4, test_ids_latent, ASSETS_ROOT)
+    # write index for test scenes only (latent)
+    write_overfit_index(4, test_ids_latent_4, ASSETS_ROOT)
 
     print("\nAll overfit datasets built successfully!\n")
