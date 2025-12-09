@@ -244,43 +244,52 @@ if __name__ == "__main__":
     # OVERFIT-1
     # ------------------
     print("\n===== OVERFIT-1 =====")
-    test_ids, train_ids = build_overfit_simple(
+    _, train_ids_1_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[1], PIXEL_TEST_ROOTS[1],
         n_scenes=1, filtered=True
     )
-    test_ids, latent_train = build_overfit_simple(
+    test_ids_1, train_ids_1 = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[1], LATENT_TEST_ROOTS[1],
         n_scenes=1, filtered=True
     )
-    write_overfit_index(1, [], ASSETS_ROOT)  # no test scenes
+
+    # original behavior: index contains *first scene only*
+    write_overfit_index(1, train_ids_1, ASSETS_ROOT)
+
 
     # ------------------
     # OVERFIT-2
     # ------------------
     print("\n===== OVERFIT-2 =====")
-    test_ids, train_ids = build_overfit_simple(
+    _, train_ids_2_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[2], PIXEL_TEST_ROOTS[2],
         n_scenes=1, filtered=False
     )
-    test_ids, latent_train = build_overfit_simple(
+    _, train_ids_2 = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[2], LATENT_TEST_ROOTS[2],
         n_scenes=1, filtered=False
     )
-    write_overfit_index(2, [], ASSETS_ROOT)
+
+    # original behavior: index identical to v1 (same scene id)
+    write_overfit_index(2, train_ids_2, ASSETS_ROOT)
+
 
     # ------------------
     # OVERFIT-3
     # ------------------
     print("\n===== OVERFIT-3 =====")
-    test_ids, train_ids = build_overfit_simple(
+    _, train_ids_3_pixel = build_overfit_simple(
         PIXEL_SRC_ROOT, PIXEL_TRAIN_ROOTS[3], PIXEL_TEST_ROOTS[3],
         n_scenes=3, filtered=False
     )
-    test_ids, latent_train = build_overfit_simple(
+    _, train_ids_3 = build_overfit_simple(
         LATENT_SRC_ROOT, LATENT_TRAIN_ROOTS[3], LATENT_TEST_ROOTS[3],
         n_scenes=3, filtered=False
     )
-    write_overfit_index(3, [], ASSETS_ROOT)
+
+    # original behavior: index contains all three scene ids
+    write_overfit_index(3, train_ids_3, ASSETS_ROOT)
+
 
     # ------------------
     # OVERFIT-4
