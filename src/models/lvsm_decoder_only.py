@@ -114,6 +114,11 @@ class LVSMDecoderOnlyModel(nn.Module):
                 rays = raymap_to_plucker(rays)
             else:
                 assert config.ray_encoding == "raymap"
+        
+        # ADDED 08.12.2025
+        rays_norm = torch.linalg.norm(rays, dim=-1, keepdim=True).clamp(min=1e-6)
+        rays = rays / rays_norm
+
         return rays
 
     def forward(
