@@ -70,6 +70,10 @@ class LVSMDecoderOnlyModel(nn.Module):
         for idx, layer in enumerate(self.encoder.layers):
             layer.apply(self.init_layer_weights(idx))
 
+        # initialize other linear layers with a shallow depth index (0)
+        # for module in [self.input_tokenizer, self.query_tokenizer, self.output_layer, self.attention]:
+        #     module.apply(self.init_layer_weights(0))
+
     def init_layer_weights(self, idx):
         # LVMS Paper A.1:
         # "We initialize the model weights with a normal distribution of zero-mean
