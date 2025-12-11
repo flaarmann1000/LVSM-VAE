@@ -371,7 +371,8 @@ class Launcher:
                 if self.use_grad_scaler:
                     grad_scaler.scale(loss).backward()
                 else:
-                    loss.backward()
+                    loss.backward()                
+
 
                 # For debugging.
                 if self.config.check_nan_in_params:
@@ -389,7 +390,7 @@ class Launcher:
             # Update model.
             model = state["model"]
             optimizer = state["optimizer"]
-            scheduler = state.get("scheduler", None)
+            scheduler = state.get("scheduler", None)            
 
             if self.use_grad_scaler:
                 grad_scaler.unscale_(optimizer)
