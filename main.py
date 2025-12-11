@@ -73,9 +73,12 @@ def write_tensor_to_image(
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # model space config
+    grad_clip: int = 0
+
     upscale: int = 1
     decode: int = 1
     overfit: int = 0
+    norm: int = 0
     model_space: str = "PX" # can be VAE or PX
 
     # Dataset config
@@ -722,9 +725,12 @@ if __name__ == "__main__":
         s = cfg.upscale
         cfg.model_config.img_shape = (32*s, 32*s, 16)
         cfg.model_config.cam_shape = (32*s, 32*s, 6)
+        #  now defined in nvs.sh
         # cfg.model_config.patch_size = 1
-        cfg.model_config.patch_size = 2
+        # cfg.model_config.patch_size = 2
         # cfg.model_config.patch_size = 8
+
+    if cfg.norm: cfg.model_config.norm = cfg.norm
 
     if cfg.overfit:
         cfg.test_n = None

@@ -19,6 +19,18 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --patch_size)
+      PATCH_SIZE="$2"
+      shift 2
+      ;;
+    --grad_clip)
+      GRAD_CLIP="$2"
+      shift 2
+      ;;
+    --max_steps)
+      MAX_STEPS="$2"
+      shift 2
+      ;;
     --decode)
       DECODE="$2"
       shift 2
@@ -26,7 +38,11 @@ while [[ $# -gt 0 ]]; do
     --overfit)
       OVERFIT="$2"
       shift 2
-      ;;
+      ;;    
+    --norm)
+      NORM="$2"
+      shift 2
+      ;;    
     --model_space)
       MODEL_SPACE="$2"
       shift 2
@@ -79,9 +95,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # defaults
+PATCH_SIZE="${PATCH_SIZE:-2}"
+MAX_STEPS="${MAX_STEPS:-80000}"
 OVERFIT="${OVERFIT:-0}"
+NORM="${NORM:-0}"
 DECODE="${DECODE:-1}"
 UPSCALE="${UPSCALE:-1}"
+GRAD_CLIP="${GRAD_CLIP:-0}"
 
 
 
@@ -115,19 +135,22 @@ BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
     "--decode ${DECODE}"
+    "--grad_clip ${GRAD_CLIP}"
     "--model_space ${MODEL_SPACE}"
     "--overfit ${OVERFIT}"
     "--upscale ${UPSCALE}"
+    "--norm ${NORM}"
     "--amp --amp_dtype fp16"
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
+    "--model_config.patch_size ${PATCH_SIZE}"
     "--model_config.encoder.num_layers 4"
     "--model_config.encoder.layer.d_model 768"
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
     # "--max_steps 5800 --test_every 5500"
-    "--max_steps 80000 --test_every 5000"  
+    "--max_steps ${MAX_STEPS} --test_every 5000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"

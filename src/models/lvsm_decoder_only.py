@@ -31,7 +31,7 @@ class LVSMDecoderOnlyModel(nn.Module):
             patches_y=config.img_shape[0] // config.patch_size,
             image_width=config.img_shape[1],
             image_height=config.img_shape[0],
-        )
+        )                
 
         assert (
             config.cam_shape[:2] == config.img_shape[:2]
@@ -47,6 +47,11 @@ class LVSMDecoderOnlyModel(nn.Module):
             config.encoder.layer.d_model,
             bias=config.encoder.layer.bias,
         )
+
+        self.pre_norm = nn.LayerNorm(    
+            config.img_shape[-1] * config.patch_size**2
+            + config.cam_shape[-1] * config.patch_size**2)
+        
         # input tokenizer encodes ref_img and ref_cam
         self.input_tokenizer = nn.Linear(
             (
@@ -120,8 +125,16 @@ class LVSMDecoderOnlyModel(nn.Module):
                 assert config.ray_encoding == "raymap"
         
         # ADDED 08.12.2025
-        rays_norm = torch.linalg.norm(rays, dim=-1, keepdim=True).clamp(min=1e-6)
-        rays = rays / rays_norm
+        # rays_norm = torch.linalg.norm(rays, dim=-1, keepdim=True).clamp(min=1e-6)
+        # rays = rays / rays_norm
+
+        # IMRPOVED 10.12.2025
+        # removed: normalizing origins might destroy generalization
+        # d = rays[..., :3]
+        # m = rays[..., 3:]
+        # d = F.normalize(d, dim=-1)        
+        # m = m / (torch.norm(m, dim=-1, keepdim=True).clamp(min=1e-6))
+        # rays = torch.cat([d, m], dim=-1)
 
         return rays
 
@@ -152,7 +165,12 @@ class LVSMDecoderOnlyModel(nn.Module):
         # Tokenize into
         # x: [B*V2, V1*N1, DIM1]
         # q: [B*V2, N2, DIM2]
-        x = self.input_tokenizer(torch.cat([ref_imgs, ref_rays], dim=-1))
+        if self.config.norm: 
+            tokens = self.pre_norm(torch.cat([ref_imgs, ref_rays], dim=-1))
+            x = self.input_tokenizer(tokens)
+        else:
+            x = self.input_tokenizer(torch.cat([ref_imgs, ref_rays], dim=-1))        
+
         x = repeat(x, "b v1 n d -> (b v2) (v1 n) d", v2=v2)
         q = self.query_tokenizer(tar_rays)
         q = rearrange(q, "b v2 n d -> (b v2) n d")
