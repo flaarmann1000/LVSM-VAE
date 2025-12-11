@@ -19,6 +19,10 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --resume)
+      RESUME="$2"
+      shift 2
+      ;;
     --patch_size)
       PATCH_SIZE="$2"
       shift 2
@@ -153,8 +157,12 @@ BASE_CMD=(
     "--max_steps ${MAX_STEPS} --test_every 5000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
-    "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"
+    "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"    
 )
+
+if [ -n "$RESUME" ]; then
+    BASE_CMD+=("--resume ${RESUME}")
+fi
 
 echo "NAME: ${NAME}"
 echo "MODEL_SPACE: ${MODEL_SPACE}"
