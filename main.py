@@ -249,9 +249,10 @@ class LVSMLauncher(Launcher):
         self.logging_on_master(f"Total scenes: {len(dataset)}")
 
         wandb.init(
-        project="adlcv",   # <-- change to your project
+        project="adlcv",
         config=self.config.__dict__,
         name=f"lvsm-decoder-only-{self.config.model_config.ray_encoding}-{self.config.model_config.pos_enc}-{self.config.max_steps} steps",
+        tags=[self.config.model_space, f"O{self.config.overfit}", f"patch_size {self.config.model_config.patch_size}", self.config.model_config.ray_encoding, self.config.model_config.pos_enc]
     )
 
         # ------------- Setup Model. ------------- #
