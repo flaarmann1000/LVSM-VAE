@@ -19,6 +19,10 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --amp)
+      AMP="$2"
+      shift 2
+      ;;
     --resume)
       RESUME="$2"
       shift 2
@@ -99,6 +103,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # defaults
+AMP="${AMP:-1}"
 PATCH_SIZE="${PATCH_SIZE:-2}"
 MAX_STEPS="${MAX_STEPS:-80000}"
 OVERFIT="${OVERFIT:-0}"
@@ -143,8 +148,7 @@ BASE_CMD=(
     "--model_space ${MODEL_SPACE}"
     "--overfit ${OVERFIT}"
     "--upscale ${UPSCALE}"
-    "--norm ${NORM}"
-    "--amp --amp_dtype fp16"
+    "--norm ${NORM}"  
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
     "--model_config.patch_size ${PATCH_SIZE}"
@@ -162,6 +166,10 @@ BASE_CMD=(
 
 if [ -n "$RESUME" ]; then
     BASE_CMD+=("--resume ${RESUME}")
+fi
+
+if [ "$AMP" -ne 0 ]; then
+    BASE_CMD+=("--amp --amp_dtype fp16")
 fi
 
 echo "NAME: ${NAME}"
