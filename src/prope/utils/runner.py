@@ -83,7 +83,9 @@ class LauncherConfig:
 
 class Launcher:
     def __init__(self, config: LauncherConfig) -> None:
+        
         self.config = config
+        self.grad_scaler = None
 
         self.local_rank = 0# int(os.environ.get("LOCAL_RANK", 0))
         self.world_rank = 0#int(os.environ.get("RANK", 0))
@@ -238,6 +240,8 @@ class Launcher:
             state_dict["optimizer"] = state["optimizer"].state_dict()
             if state["scheduler"] is not None:
                 state_dict["scheduler"] = state["scheduler"].state_dict()
+            if self.use_grad_scaler:                
+                state_dict["grad_scaler"] = self.grad_scaler.state_dict()
             torch.save(state_dict, f"{self.ckpt_dir}/step-{step:09d}.pt")
             fps = sorted(glob.glob(f"{self.ckpt_dir}/*.pt"))
             for fp in fps[: -self.config.ckpt_keeps]:
@@ -268,6 +272,9 @@ class Launcher:
                 continue
 
             self.load_state_dict_to_model(ckpt["model"], state["model"])
+            if self.use_grad_scaler and "grad_scaler" in ckpt:
+                self.grad_scaler = torch.amp.GradScaler(device="cuda")
+                self.grad_scaler.load_state_dict(ckpt["grad_scaler"])
             if not self.config.only_model and not self.config.test_only:
                 self.load_state_dict_to_optimizer(ckpt["optimizer"], state["optimizer"])
                 self.load_state_dict_to_scheduler(
@@ -345,7 +352,7 @@ class Launcher:
                 state[k] = v
 
         if self.use_grad_scaler:
-            grad_scaler = torch.amp.GradScaler(device="cuda")
+            self.grad_scaler = torch.amp.GradScaler(device="cuda")
 
         # Training loop.
         for step in range(init_step, self.config.max_steps + 1):
@@ -369,7 +376,7 @@ class Launcher:
 
                 # Backward.
                 if self.use_grad_scaler:
-                    grad_scaler.scale(loss).backward()
+                    self.grad_scaler.scale(loss).backward()
                 else:
                     loss.backward()                
 
@@ -393,13 +400,13 @@ class Launcher:
             scheduler = state.get("scheduler", None)            
 
             if self.use_grad_scaler:
-                grad_scaler.unscale_(optimizer)
+                self.grad_scaler.unscale_(optimizer)
                 if self.config.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.config.grad_clip
                     )
-                grad_scaler.step(optimizer)
-                grad_scaler.update()
+                self.grad_scaler.step(optimizer)
+                self.grad_scaler.update()
             else:
                 if self.config.grad_clip > 0:
                     torch.nn.utils.clip_grad_norm_(
