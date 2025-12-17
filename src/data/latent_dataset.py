@@ -1,5 +1,3 @@
-# Code from https://github.com/liruilong940607/prope
-
 import glob
 import json
 import os
@@ -54,7 +52,6 @@ def _normalize_poses(
     in_c2ws[:, :3, 3] /= scene_scale
     return in_c2ws
 
-
 def _normalize_poses_identity_unit_distance(
     in_c2ws: torch.Tensor,
     ref0_idx: int,
@@ -75,47 +72,6 @@ def _normalize_poses_identity_unit_distance(
         c2ws[:, :3, 3] /= dist
 
     return c2ws
-
-
-def resize_crop_with_subpixel_accuracy(
-    image: np.ndarray, K: np.ndarray, patch_size: int
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Resize and crop the image to have the smallest side equal to `patch_size`,
-    while maintaining sub-pixel accuracy using a single warpAffine transformation.
-
-    Args:
-        image (np.ndarray): Input image.
-        K (np.ndarray): Camera intrinsic matrix.
-        patch_size (int): Target size of the smaller dimension.
-
-    Returns:
-        Tuple[np.ndarray, np.ndarray]: Resized and cropped image, updated intrinsic matrix.
-    """
-    h, w = image.shape[:2]
-    scale = patch_size / min(h, w)
-
-    # Compute the affine transformation matrix combining scaling and cropping
-    new_w, new_h = w * scale, h * scale
-    crop_x = (new_w - patch_size) / 2
-    crop_y = (new_h - patch_size) / 2
-
-    M = np.array([[scale, 0, -crop_x], [0, scale, -crop_y]], dtype=np.float32)
-
-    # Apply affine transformation with sub-pixel accuracy
-    is_downsampling = min(h, w) > patch_size
-    interpolation = cv2.INTER_AREA if is_downsampling else cv2.INTER_CUBIC
-    cropped_resized_image = cv2.warpAffine(
-        image, M, (patch_size, patch_size), flags=interpolation
-    )
-
-    # Update intrinsic matrix K
-    K_scaled = K.copy()
-    K_scaled[:2, :] *= scale
-    K_scaled[0, 2] -= crop_x
-    K_scaled[1, 2] -= crop_y
-
-    return cropped_resized_image, K_scaled
-
 
 def center_zoom_in_with_subpixel_accuracy(
     image: np.ndarray, K: np.ndarray, scale: float = 1.0
@@ -162,7 +118,7 @@ def load_and_maybe_update_meta_info(json_path: str) -> Tuple[bool, Dict]:
     camera intrinsics accordingly.
     """
     if not os.path.exists(json_path):
-        return False, {}
+        return False, {}    
     with open(json_path, "r") as f:
         meta_info = json.load(f)
 
@@ -226,17 +182,30 @@ def load_and_maybe_update_meta_info(json_path: str) -> Tuple[bool, Dict]:
 
     return True, meta_info
 
+def upscale(image, K, factor):    
+    image = F.interpolate(
+        image.permute(2,0,1).unsqueeze(0),   # (H,W,C) -> (1,C,H,W)
+        scale_factor=factor,
+        mode="bilinear",
+        align_corners=False
+    ).squeeze(0).permute(1,2,0)              # back to (H,W,C)
+
+    # scale intrinsics
+    K[:2, :2] *= factor
+    K[0, 2]   *= factor
+    K[1, 2]   *= factor
+    
+    return image, K
 
 def load_frames_from_meta_info(
     data_dir: str,
     meta_info: Dict[str, Any],
-    frame_ids: List[int],
-    patch_size: int = 256,
-    zoom_factor: float = 1.0,
-    random_zoom: bool = False,
+    frame_ids: List[int],    
+    # patch_size: int = 32,
+    # zoom_factor: float = 1.0,
+    # random_zoom: bool = False,
     camera_pose_only: bool = False,
-    upscale_factor: int = 1,
-
+    upscale_factor: int = 1
 ) -> Union[Dict[str, Any], np.ndarray]:
     blender2opencv = np.array(
         [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]]
@@ -270,22 +239,31 @@ def load_frames_from_meta_info(
 
         rel_image_path = frame["file_path"]
         abs_image_path = os.path.join(data_dir, rel_image_path)
-        image = imageio.imread(abs_image_path)[..., :3]
 
-        per_image_zoom_factor = (
-            np.random.uniform(1.0, zoom_factor) if random_zoom else zoom_factor
-        )
+        image = torch.load(abs_image_path)                   
 
+        # image = imageio.imread(abs_image_path)[..., :3]
+
+        # per_image_zoom_factor = (
+        #     np.random.uniform(1.0, zoom_factor) if random_zoom else zoom_factor
+        # )
+
+        per_image_zoom_factor = 1.0
+
+        # returns just image, K for factor = 1
         image, K = center_zoom_in_with_subpixel_accuracy(
             image,
             K_raw,
             per_image_zoom_factor,
         )
-        image, K = resize_crop_with_subpixel_accuracy(image, K, patch_size)
+                
+        image = image.squeeze(0)
+        image = image.permute(1, 2, 0) # [C,H,W] → [H,W,C]            
 
         image, K = upscale(image, K, upscale_factor)
 
-        c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv
+
+        c2w = np.array(frame["transform_matrix"], dtype=np.float32) @ blender2opencv        
 
         images.append(image)
         Ks.append(K)
@@ -299,44 +277,15 @@ def load_frames_from_meta_info(
         "image_path": abs_image_paths,
     }
 
-def upscale(image: np.ndarray, K: np.ndarray, factor: int):
-    """
-    image: H x W x 3 (uint8 or float)
-    K: 3x3
-    factor: 2, 4, ...
 
-    Returns new_image, new_K
-    """
-    if factor == 1:
-        return image, K
-
-    H, W = image.shape[:2]
-
-    image = torch.from_numpy(image).permute(2,0,1).unsqueeze(0).float()  # 1,C,H,W
-    image = F.interpolate(
-        image,
-        scale_factor=factor,
-        mode="bilinear",
-        align_corners=False
-    )
-    image = image.squeeze(0).permute(1,2,0).numpy()  # H_up, W_up, C
-
-    # scale intrinsics
-    K_new = K.copy()
-    K_new[:2, :2] *= factor
-    K_new[0, 2] *= factor
-    K_new[1, 2] *= factor
-
-    return image, K_new
-
-
-class TrainDataset(Dataset):
+class TrainLatentDataset(Dataset):
     def __init__(
         self,
         data_dirs: List[str],
-        patch_size: int = 256,
-        zoom_factor: float = 1.0,  # 1.0 means disabled
-        random_zoom: bool = False,  # only useful when zoom_factor is > 1.0
+        # doesnt matter -> was used in preprocessing
+        # patch_size: int = 256, 
+        # zoom_factor: float = 1.0,  # 1.0 means disabled
+        #  random_zoom: bool = False,  # only useful when zoom_factor is > 1.0
         input_views: int = 2,
         supervise_views: int = 6,
         verbose: bool = False,
@@ -347,15 +296,16 @@ class TrainDataset(Dataset):
         # https://github.com/pytorch/pytorch/issues/13246#issuecomment-905703662
         # https://github.com/pytorch/pytorch/issues/13246#issuecomment-715050814
         self.data_dirs = np.array(data_dirs).astype(np.bytes_)
-        self.patch_size = patch_size
-        self.zoom_factor = zoom_factor
-        self.random_zoom = random_zoom
+        # self.patch_size = patch_size
+        # self.zoom_factor = zoom_factor
+        # self.random_zoom = random_zoom
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.verbose = verbose
         self.upscale_factor = upscale_factor
         if self.verbose:
             print(f"[TrainDataset] Initialized with {len(self.data_dirs)} scenes.")
+        print("training on latent dataset")
 
     def __len__(self):
         return len(self.data_dirs)
@@ -409,37 +359,18 @@ class TrainDataset(Dataset):
         indices = [start_index, end_index] + supervise_indices
         return indices
 
-    # def _select_views(
-    #     self, n_frames: int, min_frame_dist: int = 25, max_frame_dist: int = 100
-    # ) -> Optional[List[int]]:
-    #     # From: https://github.com/Haian-Jin/LVSM/blob/ebeff4989a3e1ec38fcd51ae24919d0eadf38c8f/data/dataset_scene.py#L133C1-L149C29
-    #     if n_frames < self.input_views + self.supervise_views:
-    #         return None
-    #     max_frame_dist = min(n_frames - 1, max_frame_dist)
-    #     if max_frame_dist <= min_frame_dist:
-    #         return None
-    #     frame_dist = random.randint(min_frame_dist, max_frame_dist)
-    #     if n_frames <= frame_dist:
-    #         return None
-    #     start_index = random.randint(0, n_frames - frame_dist - 1)
-    #     end_index = start_index + frame_dist
-    #     supervise_indices = random.sample(
-    #         range(start_index + 1, end_index), self.supervise_views
-    #     )
-    #     indices = [start_index, end_index] + supervise_indices
-    #     return indices
-
     def __getitem__(self, _: Any) -> Dict[str, Any]:
         # Choose a random scene
         data_dir = str(np.random.choice(self.data_dirs), encoding="utf-8")
         valid, meta_info = load_and_maybe_update_meta_info(
             os.path.join(data_dir, "transforms.json")
-        )
+        )        
         assert valid, f"Invalid scene: {data_dir}"
 
         # Select views
         n_frames = len(meta_info["frames"])
-        frame_ids = self._select_views(n_frames)
+        # frame_ids = self._select_views(n_frames)
+        frame_ids = self._select_views(n_frames, min_frame_dist=1, max_frame_dist=None) # adjust for tiny scenes        
         if frame_ids is None:
             return self.__getitem__(None)
 
@@ -453,11 +384,10 @@ class TrainDataset(Dataset):
             data_dir,
             meta_info,
             frame_ids,
-            patch_size=self.patch_size,
-            zoom_factor=self.zoom_factor,
-            random_zoom=self.random_zoom,
-            upscale_factor = self.upscale_factor,
-
+            upscale_factor=self.upscale_factor
+            # patch_size=self.patch_size,
+            # zoom_factor=self.zoom_factor,
+            # random_zoom=self.random_zoom,
         )
 
         # Preprocess poses
@@ -467,7 +397,7 @@ class TrainDataset(Dataset):
         )
         K = torch.from_numpy(loaded["K"]).float()
         image = torch.from_numpy(loaded["image"]).float()
-        image_path = loaded["image_path"]
+        image_path = loaded["image_path"]        
 
         return {
             "camtoworld": camtoworld,
@@ -477,12 +407,13 @@ class TrainDataset(Dataset):
         }
 
 
-class EvalDataset(Dataset):
+class EvalLatentDataset(Dataset):
     def __init__(
         self,
         folder: str,
-        patch_size: int = 256,
-        zoom_factor: float = 1.0,  # 1.0 means disabled
+        # doesnt matter - was used in preprocessing
+        # patch_size: int = 256,
+        # zoom_factor: float = 1.0,  # 1.0 means disabled
         verbose: bool = False,
         first_n: Optional[int] = None,
         rank: Optional[int] = None,
@@ -490,12 +421,12 @@ class EvalDataset(Dataset):
         input_views: int = 2,
         supervise_views: int = 3,
         render_video: bool = False,
-        test_index_fp: Optional[str] = None,        
+        test_index_fp: Optional[str] = None,
         upscale_factor: int = 1
     ):
         super().__init__()
-        self.patch_size = patch_size
-        self.zoom_factor = zoom_factor
+        # self.patch_size = patch_size
+        # self.zoom_factor = zoom_factor
         self.input_views = input_views
         self.supervise_views = supervise_views
         self.render_video = render_video
@@ -513,7 +444,7 @@ class EvalDataset(Dataset):
                     input_views == 2 and supervise_views == 3
                 ), f"Invalid input views and supervise views for RE10K, should be 2 and 3 respectively, but got {input_views} and {supervise_views}."
                 json_file_name = "evaluation_index_re10k.json"
-        
+
         root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
         print(f"PROJECT_ROOT: {root}")
         index_file = root + f"/assets/{json_file_name}"
@@ -572,9 +503,9 @@ class EvalDataset(Dataset):
                 data_dir,
                 meta_info,
                 frame_ids,
-                patch_size=self.patch_size,
-                zoom_factor=self.zoom_factor,
-                upscale_factor = self.upscale_factor
+                upscale_factor=self.upscale_factor
+                # patch_size=self.patch_size,
+                # zoom_factor=self.zoom_factor,
             )
         except Exception as e:
             print(f"Error in {data_dir}: {e}. frame_ids: {frame_ids}")
@@ -599,32 +530,25 @@ class EvalDataset(Dataset):
 
 
 if __name__ == "__main__":
+    # Test the dataset.
+    import glob
 
-    PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
-    DATA_ROOT = os.path.join(PROJECT_ROOT, "data" ,"data_processed", "realestate10k")
-    TRAIN_FOLDER = os.path.join(DATA_ROOT, "train")
-    TEST_FOLDER = os.path.join(DATA_ROOT, "test")
+    """
+    OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=2 nvs/dataset.py
+    """
+    
 
-    USE_DISTRIBUTED = False # Optionally skip distributed setup
+    torch.distributed.init_process_group(backend="nccl")
+    world_rank = int(os.environ.get("RANK", 0))
 
-    if USE_DISTRIBUTED:
-        torch.distributed.init_process_group(backend="nccl")
-        world_rank = int(os.environ.get("RANK", 0))
-    else:
-        world_rank = 0
-
-    # Load dataset
-    dataset = TrainDataset(
-        sorted(glob.glob(os.path.join(TRAIN_FOLDER, "*"))), verbose=True
+    dataset = TrainLatentDataset(
+        sorted(glob.glob("./data_processed/realestate10k_latent/train/*")), verbose=True
     )
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, num_workers=4)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, num_workers=4)    
     data = next(iter(dataloader))
     print(data["image"].shape, data["K"].shape, data["camtoworld"].shape)
 
-    testset = EvalDataset(folder=TEST_FOLDER, verbose=True)
-    data = testset[0]
-    print(data["image"].shape)
+    testset = EvalLatentDataset(folder="./data_processed/realestate10k_latent/test/", verbose=True)
+    data = testset[0]    
 
-    if USE_DISTRIBUTED:
-        torch.distributed.destroy_process_group()
-
+    torch.distributed.destroy_process_group()

@@ -40,14 +40,19 @@ output = prope_dot_product_attention(
 ## Dataset
 
 We first download the [RealEstate10KSubset](https://drive.google.com/drive/folders/1joiezNCyQK2BvWMnfwHJpm2V77c7iYGe) and save it into a folder
-`data`. Then we run [`src/data/gen_transforms.py`](src/data/gen_transforms.py) and [`src/data/data_processes.py`](src/data/data_preprocess.py) to
-convert the data into our data format.
+`data`. Then we run [`src/data/gen_transforms.py`](src/data/gen_transforms.py) and [`src/data/data_preprocess.py`](src/data/data_preprocess.py) to
+convert the data into the PRoPE LVSM data format. Then run [`src/data/VAE_convert.py`](src/data/VAE_convert.py) to convert the data into the latent encoded format. By default this will generate the `/train` datasets. Adjust the scripts to repeat for `/test`. Then run [`src/data/create_overfit.py`](src/data/create_overfit.py) to create a tiny sub-scene dataset for overfitting. It will produce a dataset for both pixel and latent space.
 
 ## Execute 
 
+#### Overfit Single model
+```
+bash ./nvs.sh --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --gpus "0" --overfit 1
+```
+
 #### Train Single model
 ```
-bash ./nvs.sh --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
+bash ./nvs.sh --model_space VAE --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
 ```
 
 #### Iteratively train multiple combinations
@@ -61,3 +66,17 @@ bash ./execute_multiple_nvs.sh --gpus "0"
 - Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
 - Improve UniMatch on the task of Stereo Depth Estimation: To be released
  
+
+## Dockerfile
+
+We created a dockerfile for easy usage on an external SSH server
+
+1. Build Docker file
+```
+docker build -t lvsm .
+```
+
+2. Run it all files in workspace
+```
+docker run -it -v $(pwd):/workspace lvsm bash
+```

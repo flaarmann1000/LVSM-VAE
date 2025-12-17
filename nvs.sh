@@ -3,22 +3,58 @@
 # Usage
 # 
 # 2 GPUs Training
-# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1"
-# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc gta --gpus "0,1"
+# bash ./scripts/nvs.sh --model_space PX --ray_encoding plucker --pos_enc prope --gpus "0,1"
+# bash ./scripts/nvs.sh --model_space PX --ray_encoding plucker --pos_enc gta --gpus "0,1"
 # 
 # 2 GPUs Testing (with zooming in)
-# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
+# bash ./scripts/nvs.sh --model_space PX --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-zoom-in "1 3 5"
 #
 # 2 GPUs Testing (with more context views)
-# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
+# bash ./scripts/nvs.sh --model_space PX --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-context-views "2 4 8 16"
 #
 # 2 GPUs Testing (with rendering video)
-# bash ./scripts/nvs.sh --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-render-video
+# bash ./scripts/nvs.sh --model_space PX --ray_encoding plucker --pos_enc prope --gpus "0,1" --test-render-video
 
 
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
-  case $1 in
+    case $1 in
+    --amp)
+      AMP="$2"
+      shift 2
+      ;;
+    --resume)
+      RESUME="$2"
+      shift 2
+      ;;
+    --patch_size)
+      PATCH_SIZE="$2"
+      shift 2
+      ;;
+    --grad_clip)
+      GRAD_CLIP="$2"
+      shift 2
+      ;;
+    --max_steps)
+      MAX_STEPS="$2"
+      shift 2
+      ;;
+    --decode)
+      DECODE="$2"
+      shift 2
+      ;;
+    --overfit)
+      OVERFIT="$2"
+      shift 2
+      ;;    
+    --norm)
+      NORM="$2"
+      shift 2
+      ;;    
+    --model_space)
+      MODEL_SPACE="$2"
+      shift 2
+      ;;
     --ray_encoding)
       RAY_ENCODING="$2"   
       shift 2
@@ -41,10 +77,15 @@ while [[ $# -gt 0 ]]; do
       ;;
     --test-render-video)
       TEST_RENDER_VIDEO=true
-      shift 1
+      shift 1          
+      ;;
+    --upscale)
+      UPSCALE="$2"
+      shift 2
       ;;
     -h|--help)
       echo "Usage: $0 --ray_encoding <ray_encoding> --pos_enc <pos_enc> --gpus <gpu_list> [--test-zoom-in <zoom_factors>]"
+      echo "  --model_space: PX or VAE"
       echo "  --ray_encoding: PLUCKER, CAMRAY, NONE, or RAYMAP"
       echo "  --pos_enc: PROPE, GTA, or NONE"
       echo "  --gpus: comma-separated GPU list (e.g., '0,1')"
@@ -61,7 +102,25 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# defaults
+AMP="${AMP:-1}"
+PATCH_SIZE="${PATCH_SIZE:-2}"
+MAX_STEPS="${MAX_STEPS:-80000}"
+OVERFIT="${OVERFIT:-0}"
+NORM="${NORM:-0}"
+DECODE="${DECODE:-1}"
+UPSCALE="${UPSCALE:-1}"
+GRAD_CLIP="${GRAD_CLIP:-0}"
+
+
+
 # Check required arguments
+if [ -z "$MODEL_SPACE" ]; then
+  echo "Error: --model_space is required"
+  exit 1
+fi
+
+
 if [ -z "$RAY_ENCODING" ]; then
   echo "Error: --ray_encoding is required"
   exit 1
@@ -84,21 +143,38 @@ NAME="release-${NGPUS}gpus-b8-s1-80k"
 BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
-    "--amp --amp_dtype fp16"
+    "--decode ${DECODE}"
+    "--grad_clip ${GRAD_CLIP}"
+    "--model_space ${MODEL_SPACE}"
+    "--overfit ${OVERFIT}"
+    "--upscale ${UPSCALE}"
+    "--norm ${NORM}"  
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
-    "--model_config.encoder.num_layers 4"
+    "--model_config.patch_size ${PATCH_SIZE}"
+    "--model_config.encoder.num_layers 6"
     "--model_config.encoder.layer.d_model 768"
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
-    "--max_steps 5800 --test_every 5500"
+    # "--max_steps 5800 --test_every 5500"
+    "--max_steps ${MAX_STEPS} --test_every 5000"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
-    "--output_dir results/nvs/${NAME}-${RAY_ENCODING}-${POS_ENC}"
+    "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"    
 )
 
+if [ -n "$RESUME" ]; then
+    BASE_CMD+=("--resume ${RESUME}")
+fi
+
+if [ "$AMP" -ne 0 ]; then
+    BASE_CMD+=("--amp --amp_dtype fp16")
+fi
+
 echo "NAME: ${NAME}"
+echo "MODEL_SPACE: ${MODEL_SPACE}"
+echo "OVERFIT: ${OVERFIT}"
 echo "RAY_ENCODING: ${RAY_ENCODING}"
 echo "POS_ENC: ${POS_ENC}"
 

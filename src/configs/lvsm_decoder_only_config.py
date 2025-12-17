@@ -26,6 +26,7 @@ class LVSMDecoderOnlyModelConfig:
 
     ref_views: int
     tar_views: int = 1
+    norm: int = 0
 
     encoder: TransformerEncoderConfig = field(
         default_factory=lambda: TransformerEncoderConfig(

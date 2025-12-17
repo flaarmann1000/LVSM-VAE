@@ -31,7 +31,7 @@ class LVSMDecoderOnlyModel(nn.Module):
             patches_y=config.img_shape[0] // config.patch_size,
             image_width=config.img_shape[1],
             image_height=config.img_shape[0],
-        )
+        )                
 
         assert (
             config.cam_shape[:2] == config.img_shape[:2]
@@ -47,6 +47,11 @@ class LVSMDecoderOnlyModel(nn.Module):
             config.encoder.layer.d_model,
             bias=config.encoder.layer.bias,
         )
+
+        self.pre_norm = nn.LayerNorm(    
+            config.img_shape[-1] * config.patch_size**2
+            + config.cam_shape[-1] * config.patch_size**2)
+        
         # input tokenizer encodes ref_img and ref_cam
         self.input_tokenizer = nn.Linear(
             (
@@ -70,6 +75,10 @@ class LVSMDecoderOnlyModel(nn.Module):
         for idx, layer in enumerate(self.encoder.layers):
             layer.apply(self.init_layer_weights(idx))
 
+        # initialize other linear layers with a shallow depth index (0)
+        # for module in [self.input_tokenizer, self.query_tokenizer, self.output_layer, self.attention]:
+        #     module.apply(self.init_layer_weights(0))
+
     def init_layer_weights(self, idx):
         # LVMS Paper A.1:
         # "We initialize the model weights with a normal distribution of zero-mean
@@ -90,11 +99,11 @@ class LVSMDecoderOnlyModel(nn.Module):
         config = self.config
         batch_size, v = cams.camtoworld.shape[:2]
         cam_dtype = cams.camtoworld.dtype
-        device = cams.camtoworld.device
+        device = cams.camtoworld.device               
 
         if config.ray_encoding == "none":
             rays = repeat(self.shared_rays, "h w c -> b v h w c", b=batch_size, v=v)
-        else:
+        else:            
             # Preprocess cameras into rays.
             downscale = config.img_shape[0] // config.cam_shape[0]
             rays = camera_to_raymap(
@@ -108,12 +117,25 @@ class LVSMDecoderOnlyModel(nn.Module):
                 ),
                 height=cams.height,
                 width=cams.width,
-                downscale=downscale,
+                downscale=downscale,                
             )
             if config.ray_encoding in ["plucker", "camray"]:
                 rays = raymap_to_plucker(rays)
             else:
                 assert config.ray_encoding == "raymap"
+        
+        # ADDED 08.12.2025
+        # rays_norm = torch.linalg.norm(rays, dim=-1, keepdim=True).clamp(min=1e-6)
+        # rays = rays / rays_norm
+
+        # IMRPOVED 10.12.2025
+        # removed: normalizing origins might destroy generalization
+        # d = rays[..., :3]
+        # m = rays[..., 3:]
+        # d = F.normalize(d, dim=-1)        
+        # m = m / (torch.norm(m, dim=-1, keepdim=True).clamp(min=1e-6))
+        # rays = torch.cat([d, m], dim=-1)
+
         return rays
 
     def forward(
@@ -143,7 +165,12 @@ class LVSMDecoderOnlyModel(nn.Module):
         # Tokenize into
         # x: [B*V2, V1*N1, DIM1]
         # q: [B*V2, N2, DIM2]
-        x = self.input_tokenizer(torch.cat([ref_imgs, ref_rays], dim=-1))
+        if self.config.norm: 
+            tokens = self.pre_norm(torch.cat([ref_imgs, ref_rays], dim=-1))
+            x = self.input_tokenizer(tokens)
+        else:
+            x = self.input_tokenizer(torch.cat([ref_imgs, ref_rays], dim=-1))        
+
         x = repeat(x, "b v1 n d -> (b v2) (v1 n) d", v2=v2)
         q = self.query_tokenizer(tar_rays)
         q = rearrange(q, "b v2 n d -> (b v2) n d")
