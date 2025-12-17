@@ -73,7 +73,7 @@ def write_tensor_to_image(
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # model space config
-    grad_clip: int = 0
+    grad_clip: float = 0.0
 
     upscale: int = 1
     decode: int = 1
@@ -101,7 +101,7 @@ class LVSMLauncherConfig(LauncherConfig):
     ckpt_every: int = 1000  # override
     print_every: int = 100
     visual_every: int = 1000
-    visual_wandb_every: int = 1000
+    visual_wandb_every: int = 50000
     lr: float = 4e-4
     # lr: float = 1e-4
     warmup_steps: int = 2500
@@ -285,24 +285,24 @@ class LVSMLauncher(Launcher):
         )
 
         # ------------- Setup Scheduler. ------------- #
-        # scheduler = torch.optim.lr_scheduler.ChainedScheduler(
-        #     [
-        #         torch.optim.lr_scheduler.LinearLR(
-        #             optimizer,
-        #             start_factor=0.01,
-        #             total_iters=self.config.warmup_steps,
-        #         ),
-        #         torch.optim.lr_scheduler.CosineAnnealingLR(
-        #             optimizer,
-        #             T_max=self.config.max_steps - self.config.warmup_steps,
-        #         ),
-        #     ]
-        # )
-
-        scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer,
-            lr_lambda=lambda step: 1.0  # keep LR constant
+        scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+            [
+                torch.optim.lr_scheduler.LinearLR(
+                    optimizer,
+                    start_factor=0.01,
+                    total_iters=self.config.warmup_steps,
+                ),
+                torch.optim.lr_scheduler.CosineAnnealingLR(
+                    optimizer,
+                    T_max=self.config.max_steps - self.config.warmup_steps,
+                ),
+            ]
         )
+
+        # scheduler = torch.optim.lr_scheduler.LambdaLR(
+        #     optimizer,
+        #     lr_lambda=lambda step: 1.0  # keep LR constant
+        # )
 
 
         # ------------- Setup Metrics. ------------- #

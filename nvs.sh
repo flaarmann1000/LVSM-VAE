@@ -152,7 +152,7 @@ BASE_CMD=(
     "--dataset_batch_scenes 8"
     "--dataset_supervise_views 1"
     "--model_config.patch_size ${PATCH_SIZE}"
-    "--model_config.encoder.num_layers 4"
+    "--model_config.encoder.num_layers 6"
     "--model_config.encoder.layer.d_model 768"
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"

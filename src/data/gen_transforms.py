@@ -89,7 +89,7 @@ def process_torch_file(torch_path, output_root):
 
 
 if __name__ == "__main__":
-    mode = "train"  # "train" or "test"
+    mode = "test"  # "train" or "test"
     input_folder = f"./data/re10k_subset/{mode}"    
     output_root  = f"./data/re10k_img/{mode}"
 

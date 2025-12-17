@@ -1,5 +1,5 @@
 bash run_multi.sh \
   --gpus 0 \
-  --cmd " --overfit 1 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 20000" \
-  --cmd " --overfit 1 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --norm 1 --max_steps 20000" \
+  --cmd " --overfit 4 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 700000" \
+  --cmd " --overfit 4 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --norm 1 --max_steps 700000" \
   --cmd " --overfit 1 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --norm 1 --max_steps 20000 --patch_size 4" \
