@@ -14,8 +14,8 @@ PATCH_SIZE = 256
 VAE_SCALE = 8
 
 # Input / output folders
-# mode = "train"
-mode = "test"
+mode = "train"
+# mode = "test"
 
 root_src = Path(f"./data/data_processed/realestate10k/{mode}")
 root_dst = Path(f"./data/data_processed/realestate10k_latent/{mode}")

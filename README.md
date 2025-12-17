@@ -46,7 +46,7 @@ convert the data into the PRoPE LVSM data format. Then run [`src/data/VAE_conver
 
 #### Overfit Single model
 ```
-bash ./nvs.sh --model_space VAE --ray_encoding PLUCKER --pos_enc NONE --gpus "0" -overfit 1
+bash ./nvs.sh --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --gpus "0" --overfit 1
 ```
 
 #### Train Single model

@@ -15,6 +15,7 @@ import yaml
 from torch import Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 
 def set_random_seed(seed):
@@ -397,19 +398,22 @@ class Launcher:
             # Update model.
             model = state["model"]
             optimizer = state["optimizer"]
-            scheduler = state.get("scheduler", None)            
+            scheduler = state.get("scheduler", None)     
+            grad_norm = None
+   
 
             if self.use_grad_scaler:
                 self.grad_scaler.unscale_(optimizer)
                 if self.config.grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.config.grad_clip
                     )
+                
                 self.grad_scaler.step(optimizer)
                 self.grad_scaler.update()
             else:
                 if self.config.grad_clip > 0:
-                    torch.nn.utils.clip_grad_norm_(
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
                         model.parameters(), self.config.grad_clip
                     )
                 optimizer.step()
@@ -427,7 +431,10 @@ class Launcher:
                 and step > 0
             ):
                 _ = self.test_iteration(step, test_state)
-
+            
+            
+            if step % 100 == 0 and grad_norm:
+                wandb.log({"train/grad_norm": grad_norm}, step=step)
         # Exit.
         if torch.distributed.is_initialized():
             torch.distributed.destroy_process_group()
