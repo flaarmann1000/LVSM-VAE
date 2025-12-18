@@ -20,6 +20,7 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 import logging
 
 from src.data.dataset import TrainDataset, EvalDataset
+from src.data.test_dataset import LSVMDataset
 from src.data.latent_dataset import EvalLatentDataset, TrainLatentDataset
 
 from src.models.lvsm_decoder_only import (
