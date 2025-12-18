@@ -155,7 +155,8 @@ class LSVMDataset(IterableDataset):
             "camtoworld": c2ws,
             "K": intrinsics_processed,
             "index": indices,
-            "scene_name": scene_name
+            "scene_name": scene_name,
+            "image_path": "./data/re10k_subset/" + scene_name # TODO: replace with correct path
         }
     
     def convert_poses(self, poses):
@@ -228,10 +229,8 @@ class LSVMDataset(IterableDataset):
             
             processed_images.append(img_resized)
             # Convert K to fxfycxcy format for LVSM
-            fxfycxcy = torch.tensor([
-                K_new[0, 0], K_new[1, 1], K_new[0, 2], K_new[1, 2]
-            ])
-            processed_intrinsics.append(fxfycxcy)
+
+            processed_intrinsics.append(K_new)
         
         images = torch.stack(processed_images, dim=0)
         intrinsics = torch.stack(processed_intrinsics, dim=0)

@@ -85,6 +85,7 @@ class LVSMLauncherConfig(LauncherConfig):
     # Dataset config
     dataset_patch_size: int = 256 # matters only for PX space
     dataset_supervise_views: int = 6
+    dataset_input_views: int = 2
     dataset_batch_scenes: int = 4
     train_zoom_factor: float = 1.0 # matters only for PX space
     random_zoom: bool = False # matters only for PX space
@@ -224,13 +225,13 @@ class LVSMLauncher(Launcher):
         
         if (self.config.model_space == "PX"):            
             root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
-            scenes = sorted(glob.glob(f"./data/data_processed/realestate10k/{root}/*"))
-            dataset = TrainDataset(
+            scenes = sorted(glob.glob(f"./data/re10k_subset/{root}"))
+            print(f"Root folder: ./data/re10k_subset/{root}, number of scenes: {len(scenes)}")
+            dataset = LSVMDataset(
                 scenes,
+                square_crop=True,
                 patch_size=self.config.dataset_patch_size,
-                zoom_factor=self.config.train_zoom_factor,
-                random_zoom=self.config.random_zoom,
-                supervise_views=self.config.dataset_supervise_views,
+                num_views=self.config.dataset_supervise_views + self.config.dataset_input_views,
             )
         else:
             root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
@@ -468,23 +469,18 @@ class LVSMLauncher(Launcher):
         
         if (self.config.model_space == "PX"):
             root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
-            folder = f"./data/data_processed/realestate10k/{root}/"
+            folder = f"./data/re10k_subset/{root}"
         else:
             root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
             folder = f"./data/data_processed/realestate10k_latent/{root}/"
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
-                dataset = EvalDataset(
-                    folder=folder,
+                dataset = LSVMDataset(
+                    roots=folder,
+                    square_crop=True,
                     patch_size=self.config.dataset_patch_size,
-                    zoom_factor=zoom_factor,
-                    first_n=self.config.test_n,
-                    rank=self.world_rank,
-                    world_size=self.world_size,
-                    input_views=self.config.test_input_views,
-                    supervise_views=self.config.test_supervise_views,
-                    render_video=self.config.render_video,
-                    test_index_fp=self.config.test_index_fp,                                        
+                    num_views=5, # 2 input + 3 supervise. default for RE10K
+                    inference=True,
                 )
             else:
                 dataset = EvalLatentDataset(

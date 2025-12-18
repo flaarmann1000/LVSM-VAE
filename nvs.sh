@@ -149,7 +149,7 @@ BASE_CMD=(
     "--overfit ${OVERFIT}"
     "--upscale ${UPSCALE}"
     "--norm ${NORM}"  
-    "--dataset_batch_scenes 8"
+    "--dataset_batch_scenes 1"
     "--dataset_supervise_views 1"
     "--model_config.patch_size ${PATCH_SIZE}"
     "--model_config.encoder.num_layers 6"
