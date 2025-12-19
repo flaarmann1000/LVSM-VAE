@@ -2,8 +2,6 @@ import json
 import random
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
-import numpy as np
 import torch
 import torch.nn.functional as F
 import torchvision.transforms as tf
