@@ -262,31 +262,51 @@ class LSVMDataset(IterableDataset):
         return c2ws
     
     def view_selector(self, num_frames):
-        """Select views for training (LVSM style)."""
-        if num_frames < self.num_views:
+        """
+        Robust view selection.
+        - Uses LVSM logic when possible
+        - Falls back to simple uniform sampling for small scenes
+        """
+
+        # Absolute minimum: need at least 2 views
+        if num_frames < 2:
             return None
-        
+
+        # If scene is too small for LVSM constraints → fallback
+        if (
+            num_frames < self.num_views
+            or num_frames - 1 <= self.min_frame_dist
+        ):
+            # Uniformly sample available frames
+            if num_frames >= self.num_views:
+                indices = torch.linspace(
+                    0, num_frames - 1, steps=self.num_views
+                ).long()
+            else:
+                # Repeat frames if extremely small (overfit safety)
+                indices = torch.arange(num_frames)
+                indices = indices.repeat(
+                    (self.num_views + num_frames - 1) // num_frames
+                )[: self.num_views]
+
+            return indices
+
+        # ---- Original LVSM logic ----
         min_dist = self.min_frame_dist
         max_dist = min(num_frames - 1, self.max_frame_dist)
-        
-        if max_dist <= min_dist:
-            return None
-        
+
         frame_dist = random.randint(min_dist, max_dist)
-        if num_frames <= frame_dist:
-            return None
-        
         start_frame = random.randint(0, num_frames - frame_dist - 1)
         end_frame = start_frame + frame_dist
-        
-        # Sample intermediate frames
+
         middle_frames = random.sample(
-            range(start_frame + 1, end_frame), 
+            range(start_frame + 1, end_frame),
             self.num_views - 2
         )
-        
+
         indices = [start_frame, end_frame] + middle_frames
         return torch.tensor(indices)
+
     
     def __len__(self):
         # Approximate length based on chunks

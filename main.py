@@ -20,7 +20,7 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 import logging
 
 from src.data.dataset import TrainDataset, EvalDataset
-from src.data.test_dataset import LSVMDataset
+from src.data.torch_dataset import LVSMDataset, EvalLVSMDataset
 from src.data.latent_dataset import EvalLatentDataset, TrainLatentDataset
 
 from src.models.lvsm_decoder_only import (
@@ -74,6 +74,8 @@ def write_tensor_to_image(
 @dataclass
 class LVSMLauncherConfig(LauncherConfig):
     # model space config
+
+    from_torch: int = 1
     grad_clip: float = 0.0
 
     upscale: int = 1
@@ -226,21 +228,37 @@ class LVSMLauncher(Launcher):
         if (self.config.model_space == "PX"):            
             root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
             scenes = sorted(glob.glob(f"./data/re10k_subset/{root}"))
-            print(f"Root folder: ./data/re10k_subset/{root}, number of scenes: {len(scenes)}")
-            dataset = LSVMDataset(
-                scenes,
-                square_crop=True,
-                patch_size=self.config.dataset_patch_size,
-                num_views=self.config.dataset_supervise_views + self.config.dataset_input_views,
-            )
+            print(f"Root folder: ./data/re10k_subset/{root}, approx number of train scenes: {len(scenes)} (chunks x 100)")
+            if self.config.from_torch:
+                dataset = LVSMDataset(
+                    scenes,
+                    square_crop=True,
+                    patch_size=self.config.dataset_patch_size,
+                    num_views=self.config.dataset_supervise_views + self.config.dataset_input_views,
+                )
+            else:
+                dataset = TrainDataset(
+                    scenes,
+                    patch_size=self.config.dataset_patch_size,
+                    zoom_factor=self.config.train_zoom_factor,
+                    random_zoom=self.config.random_zoom,
+                    supervise_views=self.config.dataset_supervise_views,
+                )
         else:
             root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
             scenes = sorted(glob.glob(f"./data/data_processed/realestate10k_latent/{root}/*"))            
-            dataset = TrainLatentDataset(
-                scenes,
-                supervise_views=self.config.dataset_supervise_views,
-                upscale_factor=self.config.upscale
-            )
+            if self.config.from_torch:
+                dataset = TrainLatentDataset(
+                    scenes,
+                    supervise_views=self.config.dataset_supervise_views,
+                    upscale_factor=self.config.upscale
+                )
+            else:
+                dataset = TrainLatentDataset(
+                    scenes,
+                    supervise_views=self.config.dataset_supervise_views,
+                    upscale_factor=self.config.upscale
+                )
         
         dataloader = torch.utils.data.DataLoader(
             dataset,
@@ -475,25 +493,51 @@ class LVSMLauncher(Launcher):
             folder = f"./data/data_processed/realestate10k_latent/{root}/"
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
-                dataset = LSVMDataset(
-                    roots=folder,
-                    square_crop=True,
-                    patch_size=self.config.dataset_patch_size,
-                    num_views=5, # 2 input + 3 supervise. default for RE10K
-                    inference=True,
-                )
+                if self.config.from_torch:
+                    dataset = EvalLVSMDataset(
+                        torch_root=folder,
+                        square_crop=True,
+                        patch_size=self.config.dataset_patch_size,
+                        index_json_path = self.config.test_index_fp
+                    )
+                else:
+                    dataset = EvalDataset(
+                        folder=folder,
+                        patch_size=self.config.dataset_patch_size,
+                        zoom_factor=zoom_factor,
+                        first_n=self.config.test_n,
+                        rank=self.world_rank,
+                        world_size=self.world_size,
+                        input_views=self.config.test_input_views,
+                        supervise_views=self.config.test_supervise_views,
+                        render_video=self.config.render_video,
+                        test_index_fp=self.config.test_index_fp,                                        
+                    )
             else:
-                dataset = EvalLatentDataset(
-                    folder=folder,                                 
-                    first_n=self.config.test_n,
-                    rank=self.world_rank,
-                    world_size=self.world_size,
-                    input_views=self.config.test_input_views,
-                    supervise_views=self.config.test_supervise_views,
-                    render_video=self.config.render_video,
-                    test_index_fp=self.config.test_index_fp,    
-                    upscale_factor=self.config.upscale                
-                )            
+                if self.config.from_torch:
+                    dataset = EvalLatentDataset(
+                        folder=folder,                                 
+                        first_n=self.config.test_n,
+                        rank=self.world_rank,
+                        world_size=self.world_size,
+                        input_views=self.config.test_input_views,
+                        supervise_views=self.config.test_supervise_views,
+                        render_video=self.config.render_video,
+                        test_index_fp=self.config.test_index_fp,    
+                        upscale_factor=self.config.upscale                
+                    )
+                else:
+                    dataset = EvalLatentDataset(
+                        folder=folder,                                 
+                        first_n=self.config.test_n,
+                        rank=self.world_rank,
+                        world_size=self.world_size,
+                        input_views=self.config.test_input_views,
+                        supervise_views=self.config.test_supervise_views,
+                        render_video=self.config.render_video,
+                        test_index_fp=self.config.test_index_fp,    
+                        upscale_factor=self.config.upscale                
+                    )
             dataloaders[f"zoom{zoom_factor}"] = (
                 self.config.test_input_views,
                 torch.utils.data.DataLoader(
@@ -558,7 +602,7 @@ class LVSMLauncher(Launcher):
                                 
                 inference_time =  time.time() - self.test_start                 
 
-                if self.config.decode:
+                if self.config.model_space == "VAE" and self.config.decode:
                     ref_imgs = self.decode_tensors(ref_imgs.detach())
                     outputs = self.decode_tensors(outputs.detach())
                     tar_imgs = self.decode_tensors(tar_imgs.detach())
@@ -733,7 +777,8 @@ if __name__ == "__main__":
 
     if cfg.overfit:
         cfg.test_n = None
-        cfg.test_index_fp= f"overfitting_index_re10k-{cfg.overfit}.json"
+        prefix = "t" if cfg.from_torch else None
+        cfg.test_index_fp= f"assets/overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()

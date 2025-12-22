@@ -23,6 +23,10 @@ while [[ $# -gt 0 ]]; do
       AMP="$2"
       shift 2
       ;;
+    --from_torch)
+      FROM_TORCH="$2"
+      shift 2
+      ;;
     --resume)
       RESUME="$2"
       shift 2
@@ -111,6 +115,7 @@ NORM="${NORM:-0}"
 DECODE="${DECODE:-1}"
 UPSCALE="${UPSCALE:-1}"
 GRAD_CLIP="${GRAD_CLIP:-0}"
+FROM_TORCH="${FROM_TORCH:-1}"
 
 
 
@@ -144,6 +149,7 @@ BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
     "--decode ${DECODE}"
+    "--from_torch ${FROM_TORCH}"
     "--grad_clip ${GRAD_CLIP}"
     "--model_space ${MODEL_SPACE}"
     "--overfit ${OVERFIT}"
@@ -158,7 +164,7 @@ BASE_CMD=(
     "--model_config.encoder.layer.dim_feedforward 1024"
     "--model_config.encoder.layer.qk_norm"
     # "--max_steps 5800 --test_every 5500"
-    "--max_steps ${MAX_STEPS} --test_every 100"  
+    "--max_steps ${MAX_STEPS} --test_every 10"  
     "--model_config.ray_encoding ${RAY_ENCODING}"
     "--model_config.pos_enc ${POS_ENC}"
     "--output_dir results/nvs/${MODEL_SPACE}/${NAME}-${RAY_ENCODING}-${POS_ENC}"    
