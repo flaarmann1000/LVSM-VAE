@@ -645,7 +645,10 @@ class LVSMLauncher(Launcher):
                     psnrs.append(state["psnr_fn"](outputs, tar_imgs))
                     ssims.append(state["ssim_fn"](outputs, tar_imgs))
                     if (self.config.model_space == "PX") or self.config.decode:
-                        lpips.append(state["lpips_fn"](outputs, tar_imgs))
+                        if torch.isnan(outputs).any():  
+                            lpips.append(0)
+                        else: 
+                            lpips.append(state["lpips_fn"](outputs, tar_imgs))
                     else:
                         lpips.append(0)                        
             
