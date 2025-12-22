@@ -787,7 +787,7 @@ if __name__ == "__main__":
         cfg.test_n = None
         cfg.test_index_fp= f"overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     else:
-        cfg.test_index_fp= f"overfitting_index_re10k-{prefix}4.json"
+        cfg.test_index_fp= f"evaluation_index_re10k_subset_{prefix}.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
