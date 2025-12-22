@@ -23,6 +23,10 @@ while [[ $# -gt 0 ]]; do
       AMP="$2"
       shift 2
       ;;
+    --const_lr)
+      CONST_LR="$2"
+      shift 2
+      ;;
     --from_torch)
       FROM_TORCH="$2"
       shift 2
@@ -108,6 +112,7 @@ done
 
 # defaults
 AMP="${AMP:-1}"
+CONST_LR="${CONST_LR:-1}"
 PATCH_SIZE="${PATCH_SIZE:-2}"
 MAX_STEPS="${MAX_STEPS:-80000}"
 OVERFIT="${OVERFIT:-0}"
@@ -150,6 +155,7 @@ BASE_CMD=(
     "main.py lvsm"
     "--decode ${DECODE}"
     "--from_torch ${FROM_TORCH}"
+    "--const_lr ${CONST_LR}"
     "--grad_clip ${GRAD_CLIP}"
     "--model_space ${MODEL_SPACE}"
     "--overfit ${OVERFIT}"
@@ -158,7 +164,7 @@ BASE_CMD=(
     "--dataset_batch_scenes 1"
     "--dataset_supervise_views 1"
     "--model_config.patch_size ${PATCH_SIZE}"
-    "--model_config.encoder.num_layers 6"
+    "--model_config.encoder.num_layers 4"
     "--model_config.encoder.layer.d_model 768"
     "--model_config.encoder.layer.nhead 16"
     "--model_config.encoder.layer.dim_feedforward 1024"

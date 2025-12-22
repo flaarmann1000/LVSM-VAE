@@ -78,6 +78,8 @@ class LVSMLauncherConfig(LauncherConfig):
 
     from_torch: int = 1
     grad_clip: float = 0.0
+    
+    const_lr: int = 1
 
     upscale: int = 1
     decode: int = 1
@@ -274,11 +276,19 @@ class LVSMLauncher(Launcher):
         self.logging_on_master(f"Total scenes: {len(dataset)}")
 
         wandb.init(
-        project="adlcv",
-        config=self.config.__dict__,
-        name=f"lvsm-decoder-only-{self.config.model_config.ray_encoding}-{self.config.model_config.pos_enc}-{self.config.max_steps} steps",
-        tags=[self.config.model_space, f"O{self.config.overfit}", f"patch_size {self.config.model_config.patch_size}", self.config.model_config.ray_encoding, self.config.model_config.pos_enc]
-    )
+            project="adlcv",
+            config=self.config.__dict__,
+            name=f"lvsm-decoder-only-{self.config.model_config.ray_encoding}-{self.config.model_config.pos_enc}-{self.config.max_steps} steps",
+            tags=[
+                self.config.model_space, 
+                f"O{self.config.overfit}", 
+                f"patch_size {self.config.model_config.patch_size}", 
+                self.config.model_config.ray_encoding, 
+                self.config.model_config.pos_enc, 
+                "from_torch" if self.config.from_torch else "single_files",
+                "const_lr" if self.config.const_lr else "fancy_lr"
+                ]
+        )
 
         # ------------- Setup Model. ------------- #
         model = LVSMDecoderOnlyModel(self.config.model_config).to(self.device)
@@ -308,26 +318,25 @@ class LVSMLauncher(Launcher):
             [params_decay, params_no_decay], lr=self.config.lr, betas=(0.9, 0.95)
         )
 
-        # ------------- Setup Scheduler. ------------- #
-        scheduler = torch.optim.lr_scheduler.ChainedScheduler(
-            [
-                torch.optim.lr_scheduler.LinearLR(
-                    optimizer,
-                    start_factor=0.01,
-                    total_iters=self.config.warmup_steps,
-                ),
-                torch.optim.lr_scheduler.CosineAnnealingLR(
-                    optimizer,
-                    T_max=self.config.max_steps - self.config.warmup_steps,
-                ),
-            ]
-        )
-
-        # scheduler = torch.optim.lr_scheduler.LambdaLR(
-        #     optimizer,
-        #     lr_lambda=lambda step: 1.0  # keep LR constant
-        # )
-
+        if self.config.const_lr:
+             scheduler = torch.optim.lr_scheduler.LambdaLR(
+                optimizer,
+                lr_lambda=lambda step: 1.0  # keep LR constant
+            )
+        else:
+            scheduler = torch.optim.lr_scheduler.ChainedScheduler(
+                [
+                    torch.optim.lr_scheduler.LinearLR(
+                        optimizer,
+                        start_factor=0.01,
+                        total_iters=self.config.warmup_steps,
+                    ),
+                    torch.optim.lr_scheduler.CosineAnnealingLR(
+                        optimizer,
+                        T_max=self.config.max_steps - self.config.warmup_steps,
+                    ),
+                ]
+            )
 
         # ------------- Setup Metrics. ------------- #
         psnr_fn = PeakSignalNoiseRatio(data_range=1.0).to(self.device)
@@ -772,10 +781,13 @@ if __name__ == "__main__":
 
     if cfg.norm: cfg.model_config.norm = cfg.norm
 
+    prefix = "t" if cfg.from_torch else ""
+
     if cfg.overfit:
         cfg.test_n = None
-        prefix = "t" if cfg.from_torch else ""
         cfg.test_index_fp= f"overfitting_index_re10k-{prefix}{cfg.overfit}.json"
+    else:
+        cfg.test_index_fp= f"overfitting_index_re10k-{prefix}4.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
