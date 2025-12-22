@@ -22,6 +22,7 @@ import logging
 from src.data.dataset import TrainDataset, EvalDataset
 from src.data.torch_dataset import LVSMDataset, EvalLVSMDataset
 from src.data.latent_dataset import EvalLatentDataset, TrainLatentDataset
+from src.data.torch_latent_dataset import LVSMLatentDataset, EvalLVSMLatentDataset
 
 from src.models.lvsm_decoder_only import (
     Camera,
@@ -224,14 +225,19 @@ class LVSMLauncher(Launcher):
     def train_initialize(self) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
         
+        root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
+        if (self.config.model_space == "PX"):
+            folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
+        else:
+            folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
         
-        if (self.config.model_space == "PX"):            
-            root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
-            scenes = sorted(glob.glob(f"./data/re10k_subset/{root}"))
-            print(f"Root folder: ./data/re10k_subset/{root}, approx number of train scenes: {len(scenes)} (chunks x 100)")
+        scenes = sorted(glob.glob(f"{folder}/*"))
+        print(f"Root folder: ./data/re10k_subset/{root}, approx number of train scenes: {len(scenes)} (chunks x 100)")
+        
+        if (self.config.model_space == "PX"):                        
             if self.config.from_torch:
                 dataset = LVSMDataset(
-                    scenes,
+                    folder,
                     square_crop=True,
                     patch_size=self.config.dataset_patch_size,
                     num_views=self.config.dataset_supervise_views + self.config.dataset_input_views,
@@ -244,14 +250,12 @@ class LVSMLauncher(Launcher):
                     random_zoom=self.config.random_zoom,
                     supervise_views=self.config.dataset_supervise_views,
                 )
-        else:
-            root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
-            scenes = sorted(glob.glob(f"./data/data_processed/realestate10k_latent/{root}/*"))            
+        else:         
             if self.config.from_torch:
-                dataset = TrainLatentDataset(
-                    scenes,
-                    supervise_views=self.config.dataset_supervise_views,
-                    upscale_factor=self.config.upscale
+                dataset = LVSMLatentDataset(
+                    folder,
+                    input_views=cfg.dataset_input_views,
+                    supervise_views=cfg.dataset_supervise_views,
                 )
             else:
                 dataset = TrainLatentDataset(
@@ -485,12 +489,12 @@ class LVSMLauncher(Launcher):
                 and self.config.test_supervise_views == 3
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
         
+        root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
         if (self.config.model_space == "PX"):
-            root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
-            folder = f"./data/re10k_subset/{root}"
+            folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
         else:
-            root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
-            folder = f"./data/data_processed/realestate10k_latent/{root}/"
+            folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
+        
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
                 if self.config.from_torch:
@@ -515,16 +519,9 @@ class LVSMLauncher(Launcher):
                     )
             else:
                 if self.config.from_torch:
-                    dataset = EvalLatentDataset(
-                        folder=folder,                                 
-                        first_n=self.config.test_n,
-                        rank=self.world_rank,
-                        world_size=self.world_size,
-                        input_views=self.config.test_input_views,
-                        supervise_views=self.config.test_supervise_views,
-                        render_video=self.config.render_video,
-                        test_index_fp=self.config.test_index_fp,    
-                        upscale_factor=self.config.upscale                
+                    dataset = EvalLVSMLatentDataset(
+                        torch_root=folder,
+                        index_json_path=cfg.test_index_fp,
                     )
                 else:
                     dataset = EvalLatentDataset(
@@ -777,8 +774,8 @@ if __name__ == "__main__":
 
     if cfg.overfit:
         cfg.test_n = None
-        prefix = "t" if cfg.from_torch else None
-        cfg.test_index_fp= f"assets/overfitting_index_re10k-{prefix}{cfg.overfit}.json"
+        prefix = "t" if cfg.from_torch else ""
+        cfg.test_index_fp= f"overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
