@@ -109,8 +109,8 @@ class LVSMLauncherConfig(LauncherConfig):
     print_every: int = 100
     visual_every: int = 1000
     visual_wandb_every: int = 50000
-    lr: float = 4e-4
-    # lr: float = 1e-4
+    # lr: float = 4e-4
+    lr: float = 5e-5
     warmup_steps: int = 2500
 
     # perceptual loss weight.
@@ -394,6 +394,10 @@ class LVSMLauncher(Launcher):
             if (self.config.model_space == "PX"):
                 outputs = torch.sigmoid(outputs)
             mse = F.mse_loss(outputs, tar_imgs)
+            
+            # REG
+            if self.config.model_space == "VAE":
+                mse += 1e-4 * outputs.square().mean()
 
             if (self.config.perceptual_loss_w > 0) and (self.config.model_space == "PX"):
                 perceptual_loss = perceptual(
@@ -646,11 +650,11 @@ class LVSMLauncher(Launcher):
                     ssims.append(state["ssim_fn"](outputs, tar_imgs))
                     if (self.config.model_space == "PX") or self.config.decode:
                         if torch.isnan(outputs).any():  
-                            lpips.append(0)
+                            lpips.append(0.0)
                         else: 
                             lpips.append(state["lpips_fn"](outputs, tar_imgs))
                     else:
-                        lpips.append(0)                        
+                        lpips.append(0.0)                        
             
             if self.config.render_video:
                 return
