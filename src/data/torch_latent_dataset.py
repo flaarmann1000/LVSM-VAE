@@ -104,11 +104,15 @@ class LVSMLatentDataset(IterableDataset):
     def _select_views(self, n: int) -> Optional[List[int]]:
         N = self.num_views
 
-        if n < 2:
-            return None
+        # Need at least 2 refs and enough total frames to sample N views
+        if n < N:
+            return None  # skip short scenes entirely
+        
+        # if n < 2:
+        #     return None
 
-        if n <= N:
-            return list(range(n))
+        # if n <= N:
+        #     return list(range(n))
 
         max_d = self.max_frame_dist or (n - 1)
         max_d = min(max_d, n - 1)
@@ -137,19 +141,25 @@ class LVSMLatentDataset(IterableDataset):
         idxs = self._select_views(n)
         if idxs is None:
             return None
+        
+        if len(idxs) != self.num_views:
+            return None
 
         idxs = sorted(idxs)
         idxs = [idxs[0], idxs[-1]] + idxs[1:-1]
 
         # ---- latents ----
         latents = torch.stack([_as_chw_latent(images[i]) for i in idxs])  # [V,C,H,W]
-        latents = latents.permute(0, 2, 3, 1)                             # [V,H,W,C]
+        latents = latents.permute(0, 2, 3, 1).contiguous().clone()        # [V,H,W,C], owning
 
         # ---- poses ----
         c2ws, Ks = self._convert_poses(cameras[idxs])
         c2ws = _normalize_poses_identity_unit_distance(
             c2ws, ref0_idx=0, ref1_idx=self.input_views - 1
         )
+        
+        Ks = Ks.contiguous().clone()
+        c2ws = c2ws.contiguous().clone()
 
         return {
             "image": latents.float(),
@@ -217,12 +227,15 @@ class EvalLVSMLatentDataset(Dataset):
         ids = spec["context"] + spec["target"]
 
         latents = torch.stack([_as_chw_latent(scene["images"][i]) for i in ids])
-        latents = latents.permute(0, 2, 3, 1)
+        latents = latents.permute(0, 2, 3, 1).contiguous().clone()
 
         c2ws, Ks = self._convert_poses(scene["cameras"][ids])
         c2ws = _normalize_poses_identity_unit_distance(
             c2ws, ref0_idx=0, ref1_idx=self.input_views - 1
         )
+        
+        Ks = Ks.contiguous().clone()
+        c2ws = c2ws.contiguous().clone()
 
         return {
             "image": latents.float(),
