@@ -194,7 +194,7 @@ class EvalLVSMLatentDataset(Dataset):
         self.input_views = input_views
         self.supervise_views = supervise_views
 
-        with open("assets/" + index_json_path, "r") as f:
+        with open(index_json_path, "r") as f:
             self.index = json.load(f)
 
         self.scenes = {}

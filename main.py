@@ -286,12 +286,12 @@ class LVSMLauncher(Launcher):
             name=f"lvsm-decoder-only-{self.config.model_config.ray_encoding}-{self.config.model_config.pos_enc}-{self.config.max_steps} steps",
             tags=[
                 self.config.model_space, 
-                f"O{self.config.overfit}", 
+                f"O{self.config.overfit}" if self.config.overfit else self.config.data, 
                 f"patch_size {self.config.model_config.patch_size}", 
                 self.config.model_config.ray_encoding, 
                 self.config.model_config.pos_enc, 
                 "from_torch" if self.config.from_torch else "single_files",
-                "const_lr" if self.config.const_lr else "fancy_lr"
+                "const_lr" if self.config.const_lr else "fancy_lr"                
                 ]
         )
 
@@ -401,8 +401,8 @@ class LVSMLauncher(Launcher):
             mse = F.mse_loss(outputs, tar_imgs)
             
             # REG
-            if self.config.model_space == "VAE":
-                mse += 1e-4 * outputs.square().mean()
+            # if self.config.model_space == "VAE":
+                # mse += 1e-4 * outputs.square().mean()
 
             if (self.config.perceptual_loss_w > 0) and (self.config.model_space == "PX"):
                 perceptual_loss = perceptual(
@@ -801,10 +801,10 @@ if __name__ == "__main__":
 
     if cfg.overfit:
         cfg.test_n = None
-        cfg.test_index_fp= f"overfitting_index_re10k-{prefix}{cfg.overfit}.json"
+        cfg.test_index_fp= f"assets/overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     else:
-        if cfg.data = "":
-            cfg.test_index_fp= f"evaluation_index_re10k_subset_{prefix}.json"
+        if cfg.data == "":
+            cfg.test_index_fp= f"assets/evaluation_index_re10k_subset_{prefix}.json"
         else:
             cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
     
