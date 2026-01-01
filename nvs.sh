@@ -23,6 +23,10 @@ while [[ $# -gt 0 ]]; do
       AMP="$2"
       shift 2
       ;;
+    --data)
+      DATA="$2"
+      shift 2
+      ;;
     --const_lr)
       CONST_LR="$2"
       shift 2
@@ -121,6 +125,7 @@ DECODE="${DECODE:-1}"
 UPSCALE="${UPSCALE:-1}"
 GRAD_CLIP="${GRAD_CLIP:-0}"
 FROM_TORCH="${FROM_TORCH:-1}"
+DATA="${DATA:-}"
 
 
 
@@ -153,6 +158,7 @@ NAME="release-${NGPUS}gpus-b8-s1-80k"
 BASE_CMD=(
     "NCCL_P2P_DISABLE=1 OMP_NUM_THREADS=1 torchrun --standalone --nnodes=1 --nproc-per-node=$NGPUS"
     "main.py lvsm"
+    "--data ${DATA}"
     "--decode ${DECODE}"
     "--from_torch ${FROM_TORCH}"
     "--const_lr ${CONST_LR}"

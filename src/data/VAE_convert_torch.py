@@ -12,8 +12,8 @@ from tqdm import tqdm
 # CONFIG
 # ============================================================
 
-SRC_ROOT = Path("./data/re10k_subset")
-DST_ROOT = Path("./data/re10k_subset_latent")
+SRC_ROOT = Path("./data/re10k")
+DST_ROOT = Path("/mnt/hdd/data/re10k_latent_half")
 
 PATCH_SIZE = 256
 VAE_SCALE = 8
@@ -148,8 +148,9 @@ def main():
 
         torch_files = sorted(subdir.glob("*.torch"))
         print(f"\n{subdir.name}: {len(torch_files)} files")
+        l_torch_files = len(torch_files)
 
-        for src_fp in torch_files:
+        for src_fp in torch_files[:l_torch_files//2]:
             dst_fp = dst_subdir / src_fp.name
             print(f"  → {dst_fp}")
 

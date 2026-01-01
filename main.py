@@ -78,6 +78,7 @@ class LVSMLauncherConfig(LauncherConfig):
 
     from_torch: int = 1
     grad_clip: float = 0.0
+    data: str = ""
     
     const_lr: int = 1
 
@@ -228,10 +229,14 @@ class LVSMLauncher(Launcher):
         # ------------- Setup Data. ------------- #
         
         root = f"train-overfit-{self.config.overfit}" if (self.config.overfit) else "train"
-        if (self.config.model_space == "PX"):
-            folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
-        else:
-            folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
+        
+        if(self.config.data == ""):            
+            if (self.config.model_space == "PX"):
+                folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
+            else:
+                folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
+        else:            
+            folder = f"{self.config.data}/{root}"
         
         scenes = sorted(glob.glob(f"{folder}/*"))
         print(f"Root folder: ./data/re10k_subset/{root}, approx number of train scenes: {len(scenes)} (chunks x 100)")
@@ -503,10 +508,14 @@ class LVSMLauncher(Launcher):
             ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
         
         root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
-        if (self.config.model_space == "PX"):
-            folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
-        else:
-            folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
+        
+        if(self.config.data == ""):            
+            if (self.config.model_space == "PX"):
+                folder = f"./data/re10k_subset/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k/{root}"
+            else:
+                folder = f"./data/re10k_subset_latent/{root}" if self.config.from_torch else f"./data/data_processed/realestate10k_latent/{root}/"
+        else:            
+            folder = f"{self.config.data}/{root}"                    
         
         for zoom_factor in self.config.test_zoom_factor:
             if (self.config.model_space == "PX"):
@@ -794,7 +803,10 @@ if __name__ == "__main__":
         cfg.test_n = None
         cfg.test_index_fp= f"overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     else:
-        cfg.test_index_fp= f"evaluation_index_re10k_subset_{prefix}.json"
+        if cfg.data = "":
+            cfg.test_index_fp= f"evaluation_index_re10k_subset_{prefix}.json"
+        else:
+            cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()
