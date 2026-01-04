@@ -112,6 +112,7 @@ class LVSMLauncherConfig(LauncherConfig):
     visual_wandb_every: int = 50000
     # lr: float = 4e-4
     lr: float = 5e-5
+    # lr: float = 1e-5
     warmup_steps: int = 2500
 
     # perceptual loss weight.
