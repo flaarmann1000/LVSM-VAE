@@ -110,16 +110,16 @@ class LVSMLauncherConfig(LauncherConfig):
     print_every: int = 100
     visual_every: int = 1000
     visual_wandb_every: int = 50000
-    # lr: float = 4e-4
-    lr: float = 5e-5
-    # lr: float = 1e-5
+    lr: float = 4e-4  # not stabil for bs1-bs8
+    # lr: float = 1e-5 # too slow
+    # lr: float = 5e-5 # works for bs1-bs8
     warmup_steps: int = 2500
 
     # perceptual loss weight.
     perceptual_loss_w: float = 0.5
 
     # How many test scenes to run.
-    test_every: int = 10000  # override
+    test_every: int = 1  # override
     test_n: Optional[int] = None
     test_input_views: int = 2
     test_supervise_views: int = 3
@@ -141,6 +141,7 @@ class LVSMLauncher(Launcher):
         device = "cuda"
     else:
         device = "cpu"
+    # device = "cpu"
     
     vae32 = AutoencoderKL.from_pretrained(
         "black-forest-labs/FLUX.1-dev",
@@ -630,11 +631,16 @@ class LVSMLauncher(Launcher):
                 if self.config.render_video:
                     assert outputs.shape[0] == 1
                     path_splits = tar_paths[0, 0].split("/")
-                    scene_name = path_splits[-3]
+                    scene_name = path_splits[0]
                     # dump video using imageio
+                    print(f"{self.test_dir}/{scene_name}.mp4")
+                    frames = (outputs[0].cpu().numpy() * 255).astype(np.uint8)  # convert to uint8
+
+                    # Make a boomerang: forward + backward (exclude last frame to avoid double frame)
+                    frames_boomerang = np.concatenate([frames, frames[-2:0:-1]], axis=0)
                     imageio.mimwrite(
                         f"{self.test_dir}/{scene_name}.mp4",
-                        (outputs[0].cpu().numpy() * 255).astype(np.uint8),
+                        frames_boomerang,
                         format="ffmpeg",
                         fps=15,
                     )
@@ -808,6 +814,7 @@ if __name__ == "__main__":
             cfg.test_index_fp= f"assets/evaluation_index_re10k_subset_{prefix}.json"
         else:
             cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
+            # cfg.test_index_fp= "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()

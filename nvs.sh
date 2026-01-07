@@ -19,6 +19,10 @@
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+    --acc)
+      ACC="$2"
+      shift 2
+      ;;
     --amp)
       AMP="$2"
       shift 2
@@ -184,6 +188,10 @@ BASE_CMD=(
 
 if [ -n "$RESUME" ]; then
     BASE_CMD+=("--resume ${RESUME}")
+fi
+
+if [ -n "$ACC" ]; then
+    BASE_CMD+=("--acc ${ACC}")
 fi
 
 if [ "$AMP" -ne 0 ]; then

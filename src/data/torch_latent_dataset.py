@@ -224,7 +224,9 @@ class EvalLVSMLatentDataset(Dataset):
         scene = self.scenes[key]
         spec = self.index[key]
 
-        ids = spec["context"] + spec["target"]
+        # ids = spec["context"] + spec["target"]
+        ids = [i for i in spec["context"] + spec["target"] if i < len(scene["images"])]
+
 
         latents = torch.stack([_as_chw_latent(scene["images"][i]) for i in ids])
         latents = latents.permute(0, 2, 3, 1).contiguous().clone()
