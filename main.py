@@ -599,11 +599,10 @@ class LVSMLauncher(Launcher):
         dataloaders = state["dataloaders"]
         model = state["model"]
         model.eval()
-        
         for label, (input_views, dataloader) in dataloaders.items():            
             psnrs, lpips, ssims, mses = [], [], [], []
             canvas = []  # for visualization
-            for data in tqdm.tqdm(dataloader, desc="Testing"):                
+            for data in tqdm.tqdm(dataloader, desc="Testing"):            
                 processed = self.preprocess(data, input_views=input_views)                
                 ref_imgs, tar_imgs = processed["ref_imgs"], processed["tar_imgs"]
                 ref_cams, tar_cams = processed["ref_cams"], processed["tar_cams"]
@@ -624,9 +623,13 @@ class LVSMLauncher(Launcher):
                 inference_time =  time.time() - self.test_start                 
 
                 if self.config.model_space == "VAE" and self.config.decode:
+                    self.logging_on_master(f"starting to decode ref_imgs...")
                     ref_imgs = self.decode_tensors(ref_imgs.detach())
+                    self.logging_on_master(f"starting to decode outputs...")
                     outputs = self.decode_tensors(outputs.detach())
+                    self.logging_on_master(f"starting to decode tar_imgs...")
                     tar_imgs = self.decode_tensors(tar_imgs.detach())
+                    self.logging_on_master(f"done decoding...")
 
                 if self.config.render_video:
                     assert outputs.shape[0] == 1

@@ -247,6 +247,23 @@ class Launcher:
             fps = sorted(glob.glob(f"{self.ckpt_dir}/*.pt"))
             for fp in fps[: -self.config.ckpt_keeps]:
                 os.remove(fp)
+    
+    def _override_optimizer_lr(self, optimizer: torch.optim.Optimizer, new_lr: float):
+        for pg in optimizer.param_groups:
+            pg["lr"] = new_lr
+                
+    def _override_scheduler_base_lrs(self, scheduler, new_lr: float):
+        if scheduler is None:
+            return
+
+        # Most schedulers have base_lrs
+        if hasattr(scheduler, "base_lrs"):
+            scheduler.base_lrs = [new_lr for _ in scheduler.base_lrs]
+
+        # ChainedScheduler stores sub-schedulers in _schedulers
+        if hasattr(scheduler, "_schedulers"):
+            for s in scheduler._schedulers:
+                self._override_scheduler_base_lrs(s, new_lr)
 
     def maybe_resume(self, state: Any) -> int:
         # Load checkpoint if needed.
@@ -281,6 +298,8 @@ class Launcher:
                 self.load_state_dict_to_scheduler(
                     ckpt["scheduler"], state.get("scheduler", None)
                 )
+                self._override_optimizer_lr(state["optimizer"], self.config.lr)
+                self._override_scheduler_base_lrs(state.get("scheduler", None), self.config.lr)
                 step = ckpt.get("step", 0) + 1
             elif self.config.test_only:
                 step = ckpt.get("step", 0)
