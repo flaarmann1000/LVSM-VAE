@@ -38,6 +38,16 @@ from src.prope.utils.runner import Launcher, LauncherConfig, nested_to_device
 from diffusers import AutoencoderKL
 
 
+def views_to_wandb_image(x: torch.Tensor) -> "wandb.Image":
+    """
+    x: [V,H,W,C] or [H,W,C] in [0,1]
+    returns a single mosaic image suitable for wandb.Image
+    """
+    if x.ndim == 4:  # [V,H,W,C] -> [H, V*W, C]
+        x = rearrange(x, "v h w c -> h (v w) c")
+    x = x.detach().float().clamp(0, 1).cpu().numpy()
+    return wandb.Image(x)
+
 
 def write_tensor_to_disk(x: Tensor,path: str):
     torch.save(x.cpu(), path)    
@@ -110,9 +120,9 @@ class LVSMLauncherConfig(LauncherConfig):
     print_every: int = 100
     visual_every: int = 1000
     visual_wandb_every: int = 50000
-    lr: float = 4e-4  # not stabil for bs1-bs8
+    # lr: float = 4e-4  # not stabil for bs1-bs8, but works for acc8 (mostly)
     # lr: float = 1e-5 # too slow
-    # lr: float = 5e-5 # works for bs1-bs8
+    lr: float = 5e-5 # works for bs1-bs8
     warmup_steps: int = 2500
 
     # perceptual loss weight.
@@ -447,10 +457,18 @@ class LVSMLauncher(Launcher):
             and acc_step == 0
         ):
             if self.config.model_space == "PX":
-                wandb.log({f"test/output_after_{step}_steps": wandb.Image(outputs[0].detach().cpu().numpy())}, step=step)
+                # wandb.log({f"test/output_after_{step}_steps": wandb.Image(outputs[0].detach().cpu().numpy())}, step=step)
+                wandb.log(
+                    {f"test/output_after_{step}_steps": views_to_wandb_image(outputs[0])},
+                    step=step,
+                )
             else:                                         
                 img = self.decode_tensors(outputs[0].detach())
-                wandb.log({f"test/output_after_{step}_steps": wandb.Image(img.cpu().numpy())}, step=step)
+                wandb.log(
+                    {f"test/output_after_{step}_steps": views_to_wandb_image(img)},
+                    step=step,
+                )
+                # wandb.log({f"test/output_after_{step}_steps": wandb.Image(img.cpu().numpy())}, step=step)
                 # target = self.decode_tensors(tar_imgs[0].detach())                
                 # wandb.log({f"test/target_after_{step}_steps": wandb.Image(target.cpu().numpy())}, step=step)                
         if (
@@ -563,6 +581,7 @@ class LVSMLauncher(Launcher):
                 self.config.test_input_views,
                 torch.utils.data.DataLoader(
                     dataset, batch_size=1, num_workers=2, pin_memory=True
+                    # dataset, batch_size=1, num_workers=2, pin_memory=True, persistent_workers=True
                 ),
             )
         self.logging_on_master(f"Total scenes: {len(dataset)}")
@@ -623,13 +642,9 @@ class LVSMLauncher(Launcher):
                 inference_time =  time.time() - self.test_start                 
 
                 if self.config.model_space == "VAE" and self.config.decode:
-                    self.logging_on_master(f"starting to decode ref_imgs...")
-                    ref_imgs = self.decode_tensors(ref_imgs.detach())
-                    self.logging_on_master(f"starting to decode outputs...")
-                    outputs = self.decode_tensors(outputs.detach())
-                    self.logging_on_master(f"starting to decode tar_imgs...")
-                    tar_imgs = self.decode_tensors(tar_imgs.detach())
-                    self.logging_on_master(f"done decoding...")
+                    ref_imgs = self.decode_tensors(ref_imgs.detach())                    
+                    outputs = self.decode_tensors(outputs.detach())                    
+                    tar_imgs = self.decode_tensors(tar_imgs.detach())                    
 
                 if self.config.render_video:
                     assert outputs.shape[0] == 1
