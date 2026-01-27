@@ -1,0 +1,82 @@
+!!python/object:__main__.LVSMLauncherConfig
+acc: 1
+amp: true
+amp_dtype: fp16
+aug_with_world_origin_shift: false
+aug_with_world_rotation: false
+auto_resume: false
+check_nan_in_params: false
+ckpt_every: 1000
+ckpt_keeps: 3
+ckpt_subdir: ckpts
+dataset_batch_scenes: 8
+dataset_patch_size: 256
+dataset_supervise_views: 1
+decode: 0
+fixed_seed: true
+grad_clip: 0.0
+lr: 0.0004
+max_steps: 15000
+model_config: !!python/object:src.configs.lvsm_decoder_only_config.LVSMDecoderOnlyModelConfig
+  cam_shape: !!python/tuple
+  - 256
+  - 256
+  - 6
+  encoder: !!python/object:src.prope.utils.transformer.TransformerEncoderConfig
+    _target: !!python/name:src.prope.utils.transformer.TransformerEncoder ''
+    checkpointing: false
+    input_norm: true
+    layer: !!python/object:src.prope.utils.transformer.TransformerEncoderLayerConfig
+      _target: !!python/name:src.prope.utils.transformer.TransformerEncoderLayer ''
+      activation: !!python/name:torch.nn.functional.relu ''
+      batch_first: true
+      bias: false
+      d_model: 768
+      dim_feedforward: 1024
+      dropout: 0.0
+      elementwise_affine: true
+      layer_norm_eps: 1.0e-05
+      modulation_activation: null
+      nhead: 16
+      norm_first: true
+      norm_type: layer_norm
+      qk_norm: true
+    num_layers: 4
+    output_norm: true
+  img_shape: !!python/tuple
+  - 256
+  - 256
+  - 3
+  patch_size: 8
+  pos_enc: !!python/object/apply:src.configs.lvsm_decoder_only_config.PosEncType
+  - prope
+  ray_encoding: !!python/object/apply:src.configs.lvsm_decoder_only_config.RayEncodingType
+  - camray
+  ref_views: 2
+  tar_views: 1
+model_space: PX
+only_model: false
+output_dir: results/nvs/PX/release-1gpus-b8-s1-80k-CAMRAY-PROPE
+overfit: 1
+perceptual_loss_w: 0.5
+print_every: 100
+random_zoom: false
+render_video: false
+resume: null
+seed: 42
+stats_subdir: stats
+test_every: 100
+test_index_fp: null
+test_input_views: 2
+test_n: 1
+test_only: false
+test_subdir: tests
+test_supervise_views: 3
+test_zoom_factor: !!python/tuple
+- 1.0
+train_zoom_factor: 1.0
+use_torch_compile: true
+visual_every: 100
+visual_subdir: visuals
+visual_wandb_every: 100
+warmup_steps: 2500
