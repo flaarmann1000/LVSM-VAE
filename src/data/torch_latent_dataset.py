@@ -7,10 +7,9 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import IterableDataset, Dataset
 
+from functools import lru_cache
 
-# ============================================================
-# Pose normalization (identical to your old latent dataset)
-# ============================================================
+
 
 def _normalize_poses_identity_unit_distance(
     in_c2ws: torch.Tensor,
@@ -92,7 +91,9 @@ class LVSMLatentDataset(IterableDataset):
             chunks = chunks[worker.id :: worker.num_workers]
 
         for chunk_path in chunks:
-            scenes = torch.load(chunk_path)
+            # scenes = torch.load(chunk_path)
+            scenes = torch.load(chunk_path, map_location="cpu")
+
             random.shuffle(scenes)
 
             for scene in scenes:
@@ -193,51 +194,166 @@ class LVSMLatentDataset(IterableDataset):
 # EVAL DATASET (Indexed)
 # ============================================================
 
+# class EvalLVSMLatentDataset(Dataset):
+#     def __init__(
+#         self,
+#         torch_root,
+#         index_json_path,
+#         input_views: int = 2,
+#         supervise_views: int = 3,
+#     ):
+#         self.input_views = input_views
+#         self.supervise_views = supervise_views
+
+#         with open(index_json_path, "r") as f:
+#             self.index = json.load(f)
+
+#         self.scenes = {}
+#         for p in Path(torch_root).glob("*.torch"):
+#             for s in torch.load(p):
+#                 self.scenes[s["key"]] = s
+
+#         self.keys = sorted(
+#             k for k, spec in self.index.items()
+#             if spec is not None and k in self.scenes
+#         )
+
+
+#     def __len__(self):
+#         return len(self.keys)
+
+
+#     def __getitem__(self, idx: int):
+#         key = self.keys[idx]
+#         scene = self.scenes[key]
+#         spec = self.index[key]
+
+#         # ids = spec["context"] + spec["target"]
+#         ids = [i for i in spec["context"] + spec["target"] if i < len(scene["images"])]
+
+
+#         latents = torch.stack([_as_chw_latent(scene["images"][i]) for i in ids])
+#         latents = latents.permute(0, 2, 3, 1).contiguous()
+#         # latents = latents.permute(0, 2, 3, 1).contiguous().clone()
+
+#         c2ws, Ks = self._convert_poses(scene["cameras"][ids])
+#         c2ws = _normalize_poses_identity_unit_distance(
+#             c2ws, ref0_idx=0, ref1_idx=self.input_views - 1
+#         )
+        
+#         Ks = Ks.contiguous().clone()
+#         c2ws = c2ws.contiguous().clone()
+
+#         return {
+#             "image": latents.float(),
+#             "K": Ks.float(),
+#             "camtoworld": c2ws.float(),
+#             "image_path": [key] * len(ids),
+#             "scene_idx": idx,
+#         }
+
+
+#     def _convert_poses(self, poses: torch.Tensor):
+#         b = poses.shape[0]
+
+#         intrinsics = torch.eye(3).repeat(b, 1, 1)
+#         fx, fy, cx, cy = poses[:, :4].T
+#         intrinsics[:, 0, 0] = fx
+#         intrinsics[:, 1, 1] = fy
+#         intrinsics[:, 0, 2] = cx
+#         intrinsics[:, 1, 2] = cy
+
+#         w2c = torch.eye(4).repeat(b, 1, 1)
+#         w2c[:, :3] = poses[:, 6:].view(b, 3, 4)
+
+#         return w2c.inverse(), intrinsics
+
+
+
 class EvalLVSMLatentDataset(Dataset):
+    """
+    Lazy-loading eval dataset.
+
+    - Loads index_json_path in __init__
+    - Builds a lightweight manifest: key -> {path, idx_in_file}
+    - In __getitem__, loads only the needed .torch file (with a small LRU cache)
+    """
+
     def __init__(
         self,
         torch_root,
         index_json_path,
         input_views: int = 2,
         supervise_views: int = 3,
+        manifest_cache_size: int = 8,  # how many .torch files to keep cached
     ):
         self.input_views = input_views
         self.supervise_views = supervise_views
+        self.manifest_cache_size = manifest_cache_size
 
         with open(index_json_path, "r") as f:
-            self.index = json.load(f)
+            self.index: Dict[str, Optional[Dict[str, Any]]] = json.load(f)
 
-        self.scenes = {}
-        for p in Path(torch_root).glob("*.torch"):
-            for s in torch.load(p):
-                self.scenes[s["key"]] = s
+        # Build: key -> (file_path, scene_idx)
+        self.manifest: Dict[str, Dict[str, Any]] = {}
+        for p in sorted(Path(torch_root).glob("*.torch")):
+            # Load on CPU so we don't accidentally blow up GPU memory if tensors were saved on cuda
+            scenes = torch.load(p, map_location="cpu")
+            for j, s in enumerate(scenes):
+                k = s.get("key", None)
+                if k is not None:
+                    self.manifest[k] = {"path": str(p), "idx": j}
 
-        self.keys = sorted(k for k in self.index if k in self.scenes)
+        # Keep only usable keys (spec exists and scene exists)
+        self.keys = sorted(
+            k for k, spec in self.index.items()
+            if spec is not None and k in self.manifest
+        )
 
+        # Create an LRU cached loader bound to this instance + cache size.
+        # (We define it here so manifest_cache_size is respected.)
+        @lru_cache(maxsize=self.manifest_cache_size)
+        def _load_torch_file(path: str):
+            return torch.load(path, map_location="cpu")
+
+        self._load_torch_file = _load_torch_file
 
     def __len__(self):
         return len(self.keys)
 
-
     def __getitem__(self, idx: int):
         key = self.keys[idx]
-        scene = self.scenes[key]
         spec = self.index[key]
+        if spec is None:
+            raise ValueError(f"Index spec is None for key={key}")
 
-        # ids = spec["context"] + spec["target"]
-        ids = [i for i in spec["context"] + spec["target"] if i < len(scene["images"])]
+        entry = self.manifest[key]
+        scenes = self._load_torch_file(entry["path"])
+        scene = scenes[entry["idx"]]
 
+        # Build frame ids (keep only valid indices)
+        ids = [i for i in (spec["context"] + spec["target"]) if i < len(scene["images"])]
 
+        # Make sure we still have enough views for pose normalization
+        if len(ids) < self.input_views:
+            raise ValueError(
+                f"Not enough frames for key={key}: have {len(ids)}, need >= {self.input_views}. "
+                f"(After filtering invalid indices.)"
+            )
+
+        # Latents: [V,C,H,W] -> [V,H,W,C]
         latents = torch.stack([_as_chw_latent(scene["images"][i]) for i in ids])
-        latents = latents.permute(0, 2, 3, 1).contiguous().clone()
+        latents = latents.permute(0, 2, 3, 1).contiguous()
 
+        # Poses / intrinsics
         c2ws, Ks = self._convert_poses(scene["cameras"][ids])
         c2ws = _normalize_poses_identity_unit_distance(
             c2ws, ref0_idx=0, ref1_idx=self.input_views - 1
         )
-        
-        Ks = Ks.contiguous().clone()
-        c2ws = c2ws.contiguous().clone()
+
+        # Typically no need to clone; keep it contiguous for downstream code
+        Ks = Ks.contiguous()
+        c2ws = c2ws.contiguous()
 
         return {
             "image": latents.float(),
@@ -246,7 +362,6 @@ class EvalLVSMLatentDataset(Dataset):
             "image_path": [key] * len(ids),
             "scene_idx": idx,
         }
-
 
     def _convert_poses(self, poses: torch.Tensor):
         b = poses.shape[0]
