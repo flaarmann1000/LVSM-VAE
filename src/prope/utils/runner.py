@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
+from datetime import datetime
 
 import numpy as np
 import torch
@@ -84,6 +85,9 @@ class LauncherConfig:
 
 class Launcher:
     def __init__(self, config: LauncherConfig) -> None:
+
+        self.save_best_model_flag = False
+        self.best_mse = np.inf
         
         self.config = config
         self.grad_scaler = None
@@ -96,7 +100,8 @@ class Launcher:
 
         # Setup output directories.
         self.output_dir = self.config.output_dir
-        self.ckpt_dir = f"{self.output_dir}/{self.config.ckpt_subdir}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.ckpt_dir = f"{self.output_dir}/{self.config.ckpt_subdir}/{timestamp}"
         os.makedirs(self.ckpt_dir, exist_ok=True)
         self.stats_dir = f"{self.output_dir}/{self.config.stats_subdir}"
         os.makedirs(self.stats_dir, exist_ok=True)
@@ -224,12 +229,12 @@ class Launcher:
         if scheduler is not None:
             scheduler.load_state_dict(state_dict)
 
-    def save_checkpoint(self, step: int, state: Any) -> None:
+    def save_checkpoint(self, step: int, state: Any, best_model=False) -> None:
         if self.world_rank != 0:
             return
         if step == 0:
             return
-        if step % self.config.ckpt_every == 0 or step == self.config.max_steps:
+        if step % self.config.ckpt_every == 0 or step == self.config.max_steps or best_model:
             state_dict = {"step": step}
             if self.world_size > 1:
                 model = state["model"].module
@@ -243,7 +248,11 @@ class Launcher:
                 state_dict["scheduler"] = state["scheduler"].state_dict()
             if self.use_grad_scaler:                
                 state_dict["grad_scaler"] = self.grad_scaler.state_dict()
-            torch.save(state_dict, f"{self.ckpt_dir}/step-{step:09d}.pt")
+                
+            if best_model:
+                torch.save(state_dict, f"{self.ckpt_dir}/best_model_step-{step:09d}.pt")
+            else: 
+                torch.save(state_dict, f"{self.ckpt_dir}/step-{step:09d}.pt")
             fps = sorted(glob.glob(f"{self.ckpt_dir}/*.pt"))
             for fp in fps[: -self.config.ckpt_keeps]:
                 os.remove(fp)
@@ -450,6 +459,10 @@ class Launcher:
                 and step > 0
             ):
                 _ = self.test_iteration(step, test_state)
+
+            if self.save_best_model_flag:
+                self.save_checkpoint(step, state, best_model=True)
+                self.save_best_model_flag = False
             
             
             if step % 100 == 0 and grad_norm:

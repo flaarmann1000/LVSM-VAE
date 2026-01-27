@@ -116,11 +116,12 @@ class LVSMLauncherConfig(LauncherConfig):
 
     # Training config
     max_steps: int = 100000  # override
-    ckpt_every: int = 1000  # override
+    ckpt_every: int = 100  # override
     print_every: int = 100
     visual_every: int = 1000
     visual_wandb_every: int = 50000
     # lr: float = 4e-4  # not stabil for bs1-bs8, but works for acc8 (mostly)
+    # lr: float = 1e-4
     # lr: float = 1e-5 # too slow
     lr: float = 5e-5 # works for bs1-bs8
     warmup_steps: int = 2500
@@ -519,6 +520,7 @@ class LVSMLauncher(Launcher):
         model: Optional[torch.nn.Module] = None,
     ) -> Dict[str, Any]:
         # ------------- Setup Data. ------------- #
+        # Flag that decides if the current model is the best one
         dataset = None
         dataloaders = dict()
         if not self.config.render_video and self.config.test_index_fp is None:
@@ -740,6 +742,11 @@ class LVSMLauncher(Launcher):
                 f"PSNR{label}: {avg_psnr:.3f}, SSIM{label}: {avg_ssim:.3f}, LPIPS{label}: {avg_lpips:.3f} "
                 f"evaluated on {n_total} scenes at step {step}."
             )
+            print(self.best_mse, avg_mse)
+            if avg_mse < self.best_mse:
+                self.best_mse = avg_mse
+                self.save_best_model_flag = True
+
 
             if self.world_rank == 0:
                 self.writer.add_scalar(f"test/psnr{label}", avg_psnr, step)
