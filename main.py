@@ -123,7 +123,8 @@ class LVSMLauncherConfig(LauncherConfig):
     # lr: float = 4e-4  # not stabil for bs1-bs8, but works for acc8 (mostly)
     # lr: float = 1e-4
     # lr: float = 1e-5 # too slow
-    lr: float = 5e-5 # works for bs1-bs8
+    # lr: float = 5e-5 # works
+    lr: float = 3e-5 # decay
     warmup_steps: int = 2500
 
     # perceptual loss weight.

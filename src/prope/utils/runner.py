@@ -41,7 +41,7 @@ def nested_to_device(data: Dict, device) -> Dict:
 class LauncherConfig:
     # Dump everything to this directory.
     output_dir: str = "results/dbg"
-
+    
     # Maximum number of steps to train.
     max_steps: int = 100
 
@@ -90,7 +90,7 @@ class Launcher:
         self.best_mse = np.inf
         
         self.config = config
-        self.grad_scaler = None
+        self.grad_scaler = None        
 
         self.local_rank = 0# int(os.environ.get("LOCAL_RANK", 0))
         self.world_rank = 0#int(os.environ.get("RANK", 0))
@@ -244,7 +244,7 @@ class Launcher:
             # https://github.com/pytorch/pytorch/issues/101107#issuecomment-1869839379
             state_dict["model"] = getattr(model, "_orig_mod", model).state_dict()
             state_dict["optimizer"] = state["optimizer"].state_dict()
-            if state["scheduler"] is not None:
+            if (state["scheduler"] is not None) and self.config.const_lr == 0:
                 state_dict["scheduler"] = state["scheduler"].state_dict()
             if self.use_grad_scaler:                
                 state_dict["grad_scaler"] = self.grad_scaler.state_dict()
@@ -304,9 +304,10 @@ class Launcher:
                 self.grad_scaler.load_state_dict(ckpt["grad_scaler"])
             if not self.config.only_model and not self.config.test_only:
                 self.load_state_dict_to_optimizer(ckpt["optimizer"], state["optimizer"])
-                self.load_state_dict_to_scheduler(
-                    ckpt["scheduler"], state.get("scheduler", None)
-                )
+                if self.config.const_lr == 0:
+                    self.load_state_dict_to_scheduler(
+                        ckpt["scheduler"], state.get("scheduler", None)
+                    )
                 self._override_optimizer_lr(state["optimizer"], self.config.lr)
                 self._override_scheduler_base_lrs(state.get("scheduler", None), self.config.lr)
                 step = ckpt.get("step", 0) + 1
