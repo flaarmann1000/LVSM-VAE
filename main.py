@@ -100,8 +100,8 @@ class LVSMLauncherConfig(LauncherConfig):
 
     # Dataset config
     dataset_patch_size: int = 256 # matters only for PX space
-    dataset_supervise_views: int = 6
-    dataset_input_views: int = 2
+    dataset_supervise_views: int = 4
+    dataset_input_views: int = 4
     dataset_batch_scenes: int = 4
     train_zoom_factor: float = 1.0 # matters only for PX space
     random_zoom: bool = False # matters only for PX space
@@ -111,7 +111,7 @@ class LVSMLauncherConfig(LauncherConfig):
 
     # Model config
     model_config: Any = field(
-        default_factory=lambda: LVSMDecoderOnlyModelConfig(ref_views=2)
+        default_factory=lambda: LVSMDecoderOnlyModelConfig(ref_views=4)
     )
 
     # Training config
@@ -133,7 +133,7 @@ class LVSMLauncherConfig(LauncherConfig):
     # How many test scenes to run.
     test_every: int = 1  # override
     test_n: Optional[int] = None
-    test_input_views: int = 2
+    test_input_views: int = 4
     test_supervise_views: int = 3
     test_zoom_factor: tuple[float, ...] = (1.0,)
     aug_with_world_origin_shift: bool = False
@@ -402,7 +402,7 @@ class LVSMLauncher(Launcher):
             data = next(dataiter)
             state["dataiter"] = dataiter
 
-        input_views = data["K"].shape[1] - self.config.dataset_supervise_views        
+        input_views = data["K"].shape[1] - self.config.dataset_supervise_views
         processed = self.preprocess(data, input_views=input_views)
         ref_imgs, tar_imgs = processed["ref_imgs"], processed["tar_imgs"]
         ref_cams, tar_cams = processed["ref_cams"], processed["tar_cams"]        
@@ -524,11 +524,11 @@ class LVSMLauncher(Launcher):
         # Flag that decides if the current model is the best one
         dataset = None
         dataloaders = dict()
-        if not self.config.render_video and self.config.test_index_fp is None:
-            assert (
-                self.config.test_input_views == 2
-                and self.config.test_supervise_views == 3
-            ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
+        # if not self.config.render_video and self.config.test_index_fp is None:
+        #     assert (
+        #         self.config.test_input_views == 2
+        #         and self.config.test_supervise_views == 3
+        #     ), "Invalid input views and supervise views for RE10K, should be 2 and 3 respectively."
         
         root = f"test-overfit-{self.config.overfit}" if (self.config.overfit) else "test"
         
@@ -837,9 +837,12 @@ if __name__ == "__main__":
         cfg.test_index_fp= f"assets/overfitting_index_re10k-{prefix}{cfg.overfit}.json"
     else:
         if cfg.data == "":
-            cfg.test_index_fp= f"assets/evaluation_index_re10k_subset_{prefix}.json"
+            # cfg.test_index_fp= f"assets/evaluation_index_re10k_subset_{prefix}.json"
+            cfg.test_index_fp= f"assets/eval_index_context4.json"
+
         else:
-            cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
+            # cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
+            cfg.test_index_fp= f"assets/eval_index_context4.json"
             # cfg.test_index_fp= "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
     
     launcher = LVSMLauncher(cfg)
