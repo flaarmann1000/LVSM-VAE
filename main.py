@@ -101,8 +101,8 @@ class LVSMLauncherConfig(LauncherConfig):
     # Dataset config
     dataset_patch_size: int = 256 # matters only for PX space
     dataset_supervise_views: int = 4
-    dataset_input_views: int = 4
-    dataset_batch_scenes: int = 4
+    dataset_input_views: int = 8
+    dataset_batch_scenes: int = 8
     train_zoom_factor: float = 1.0 # matters only for PX space
     random_zoom: bool = False # matters only for PX space
 
@@ -111,7 +111,7 @@ class LVSMLauncherConfig(LauncherConfig):
 
     # Model config
     model_config: Any = field(
-        default_factory=lambda: LVSMDecoderOnlyModelConfig(ref_views=4)
+        default_factory=lambda: LVSMDecoderOnlyModelConfig(ref_views=8)
     )
 
     # Training config
@@ -124,7 +124,7 @@ class LVSMLauncherConfig(LauncherConfig):
     # lr: float = 1e-4
     # lr: float = 1e-5 # too slow
     # lr: float = 5e-5 # works
-    lr: float = 3e-5 # decay
+    lr: float = 1e-5 # decay
     warmup_steps: int = 2500
 
     # perceptual loss weight.
@@ -133,7 +133,7 @@ class LVSMLauncherConfig(LauncherConfig):
     # How many test scenes to run.
     test_every: int = 1  # override
     test_n: Optional[int] = None
-    test_input_views: int = 4
+    test_input_views: int = 8
     test_supervise_views: int = 3
     test_zoom_factor: tuple[float, ...] = (1.0,)
     aug_with_world_origin_shift: bool = False
@@ -838,11 +838,11 @@ if __name__ == "__main__":
     else:
         if cfg.data == "":
             # cfg.test_index_fp= f"assets/evaluation_index_re10k_subset_{prefix}.json"
-            cfg.test_index_fp= f"assets/eval_index_context4.json"
+            cfg.test_index_fp= f"assets/eval_index_context8.json"
 
         else:
             # cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
-            cfg.test_index_fp= f"assets/eval_index_context4.json"
+            cfg.test_index_fp= f"assets/eval_index_context8.json"
             # cfg.test_index_fp= "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
     
     launcher = LVSMLauncher(cfg)
