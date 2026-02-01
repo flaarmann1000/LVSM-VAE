@@ -102,7 +102,8 @@ def get_config(overwrite):
     return cfg
 
 # ckpt_path = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000870100.pt"
-ckpt_path = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000887200.pt"
+# ckpt_path = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000887200.pt"
+ckpt_path = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000903600.pt"
 
 ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
 state_dict = {k.replace("_orig_mod.", ""): v for k, v in ckpt["model"].items()}
@@ -189,8 +190,8 @@ for INPUT_VIEWS in [2,4,8,16]:
     mean_ssim = ssim / n
     mean_lpips = lpips / n
 
-    df.to_csv(f"/home/teampc/LVSM-VAE/notebooks/results/performance_metrics_4ctx/context{INPUT_VIEWS}.csv", index=False)
-    with open(f"/home/teampc/LVSM-VAE/notebooks/results/performance_metrics_4ctx/context{INPUT_VIEWS}_res.txt", "w") as f:
+    df.to_csv(f"/home/teampc/LVSM-VAE/notebooks/results/performance_metrics_8ctx/context{INPUT_VIEWS}.csv", index=False)
+    with open(f"/home/teampc/LVSM-VAE/notebooks/results/performance_metrics_8ctx/context{INPUT_VIEWS}_res.txt", "w") as f:
         f.write(f"\npsn: {mean_psnr}\nssim: {mean_ssim}\nlpips: {mean_lpips}")
 
 
