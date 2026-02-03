@@ -11,7 +11,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from demos import load_and_maybe_update_meta_info
+from src.data.utils.demos import load_and_maybe_update_meta_info
 
 
 def load_frames_from_meta_info(
