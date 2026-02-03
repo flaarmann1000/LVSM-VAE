@@ -1,71 +1,85 @@
 # PRoPE
-https://www.liruilong.cn/prope/
 
-This is the official repo for the paper "Cameras as Relative Positional Encoding", published at NeurIPS 2025.
+This is the official repository for the project **“LVSM-VAE – Transformer-based Novel View Synthesis in Latent Space”**.
 
-<img width="1876" height="596" alt="image" src="https://github.com/user-attachments/assets/9eba5518-b664-4d54-826c-6f35d7c84698" />
+The code is adapted from **LVSM** and **PRoPE**, based on the official *Cameras as Relative Positional Encoding* repository:  
+https://github.com/liruilong940607/prope
 
-**TL;DR**: Language models and multi-view transformers must both bind “positional” information to input tokens, in terms of sequence position for LLMs and camera parameters for multi-view transformers. We present a study on camera conditioning that includes absolute positional encodings (e.g, raymaps), relative pose encodings (e.g., GTA), and a new method (PRoPE) uses *relative projective* transformation to capture 3D relationship between image tokens.
+---
 
+## TL;DR
 
-## Implementations
+This project was developed as part of the TUM course **Advanced Deep Learning for Computer Vision**.  
+We propose **LVSM-VAE**, a latent-space extension of LVSM that performs novel view synthesis directly in a VAE latent space. This significantly reduces inference memory and runtime while scaling efficiently to larger numbers of context views and maintaining competitive reconstruction quality. Fine-tuning with additional context views further improves robustness and performance.
 
-The implementation of PRoPE is extremely simple and efficient. We provide standalone, single-file implementations for both JAX and PyTorch in [`prope/jax.py`](prope/jax.py) and [`prope/torch.py`](prope/torch.py). 
-
-## Example of Usages
-
-Here we demo with PyTorch version:
-
-```python
-# Say we have C images, each carries with camera infomation, which would be used for cross-view understanding.
-viewmats: Tensor # (B, C, 4, 4) camera world-to-camera matrix
-Ks: Tensor # (B, C, 3, 3) camera intrinsic matrix
-
-# In transformer we typically patchify the images into tokens. Say
-# the image size is (256, 384) and patch size is 16.
-image_width, image_height = 256, 384
-patches_x, patches_y = image_width / 16, image_height / 16
-
-# And our attention layer has mapped the images from pixels (B, C, 384, 256) to Q/K/V tokens with shape (B, num_heads, seqlen, head_dim), where `seqlen = C * patches_x * patches_y`
-Q, K, V: Tensor = ... # (B, num_heads, seqlen, head_dim)
-
-# Injecting the camera information is simply replacing the native torch attention with our impl:
-output = torch.nn.functional.scaled_dot_product_attention(Q, K, V)
-# -->
-output = prope_dot_product_attention(
-    Q, K, V,viewmats=viewmats, Ks=Ks, patches_x=patches_x, patches_y=patches_y, image_width=image_width, image_height=image_height
-)
-```
+---
 
 ## Dataset
 
-We first download the [RealEstate10KSubset](https://drive.google.com/drive/folders/1joiezNCyQK2BvWMnfwHJpm2V77c7iYGe) and save it into a folder
-`data`. Then we run [`src/data/gen_transforms.py`](src/data/gen_transforms.py) and [`src/data/data_preprocess.py`](src/data/data_preprocess.py) to
-convert the data into the PRoPE LVSM data format. Then run [`src/data/VAE_convert.py`](src/data/VAE_convert.py) to convert the data into the latent encoded format. By default this will generate the `/train` datasets. Adjust the scripts to repeat for `/test`. Then run [`src/data/create_overfit.py`](src/data/create_overfit.py) to create a tiny sub-scene dataset for overfitting. It will produce a dataset for both pixel and latent space.
+1. Download the **RealEstate10KSubset** from  
+   https://drive.google.com/drive/folders/1joiezNCyQK2BvWMnfwHJpm2V77c7iYGe  
+   and place it in a folder called `data`.
 
-## Execute 
+2. Convert the dataset to the PRoPE/LVSM format by running:
+   - `src/data/utils/gen_transforms.py`
+   - `src/data/utils/data_preprocess.py`
 
-#### Overfit Single model
-```
-bash ./nvs.sh --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --gpus "0" --overfit 1
+3. Convert the data to the VAE latent format using:
+   - `src/data/utils/VAE_convert.py`  
+   By default, this generates the `/train` split. Adjust the scripts accordingly to process `/test`.
+
+4. Create a small sub-scene dataset for overfitting experiments:
+   - `src/data/create_overfit.py`  
+   This produces datasets for both pixel space and latent space.
+
+---
+
+## Execution
+
+### Overfit a Single Model
+
+```bash
+./nvs.sh --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --gpus "0" --overfit 1
 ```
 
-#### Train Single model
-```
-bash ./nvs.sh --model_space VAE --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
+#### Train a Single Model
+
+To train a single model, inspect the `nvs.sh` script to see the available parameters you can configure.  
+Among others, you can choose:
+
+- `model_space`: `PX` or `VAE`
+- `ray_encoding`: `PLUCKER`, `CAMRAY`, `NONE`, or `RAYMAP`
+- `pos_enc`: `PROPE`, `GTA`, or `NONE`
+
+You can start a training run with:
+
+```bash
+./nvs.sh --model_space VAE --ray_encoding PLUCKER --pos_enc NONE --gpus "0"
 ```
 
-#### Iteratively train multiple combinations
-Go to [execute_multiple_nvs.sh](execute_multiple_nvs.sh) and define the ray and pos encoding you wantto train in line 6. The execute: 
-```
-bash ./execute_multiple_nvs.sh --gpus "0"
+#### Training in Latent Space
+
+When training in latent space, you can choose whether to decode images during the validation step.  
+Decoding allows you to evaluate perceptual metrics but requires significantly more compute and therefore increases training time.
+
+```bash
+./nvs.sh --model_space VAE --ray_encoding PLUCKER --pos_enc NONE --gpus "0" --decode 1
 ```
 
-## Experiments
 
-- Improve LVSM on the task of Novel View Syntheis: [Checkout `nvs` branch](https://github.com/liruilong940607/prope/tree/nvs)
-- Improve UniMatch on the task of Stereo Depth Estimation: To be released
- 
+#### Iteratively Train Multiple Combinations
+
+To run multiple training configurations sequentially, you can use `run_multi.sh`.  
+This is useful for evaluating different overfitting settings or framework backends in a single run.
+
+```bash
+./run_multi.sh \
+  --gpus 0 \
+  --cmd " --overfit 1 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 20000 --from_torch 1" \
+  --cmd " --overfit 1 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 20000 --from_torch 0" \
+  --cmd " --overfit 4 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 20000 --from_torch 1" \
+  --cmd " --overfit 4 --model_space VAE --ray_encoding CAMRAY --pos_enc PROPE --max_steps 20000 --from_torch 0"
+``` 
 
 ## Dockerfile
 
