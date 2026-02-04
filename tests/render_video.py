@@ -105,12 +105,13 @@ def main():
     # -------------
     # USER SETTINGS
     # -------------
-    ckpt_path   = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000870100.pt"
-    # ckpt_path   = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000903600.pt"
+    ckpt_path   = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000903600.pt"
+    # ckpt_path   = "/home/teampc/LVSM-VAE/results/nvs/VAE/release-1gpus-b8-s1-80k-CAMRAY-PROPE/ckpts/best_for_now/step-000870100.pt"
     data_root   = "/mnt/hdd/data/re10k_full/test"
-    index_json  = "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
-    # index_json  = "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video_large_context.json"
-    INPUT_VIEWS = 2
+    # index_json  = "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
+    # index_json  = "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video_large_context.json"    
+    index_json  = "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video_large_context2.json"
+    INPUT_VIEWS = 8
     SUPERVISE_VIEWS = 3
     INDEX = 0                     
     OUT_DIR = "./renders"
