@@ -134,3 +134,4 @@ assets/
 wandb/
 /data/*
 wandb/*
+model_weights/

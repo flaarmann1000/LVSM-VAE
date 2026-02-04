@@ -171,12 +171,14 @@ class LVSMLauncher(Launcher):
         Returns:
             same leading shape but decoded to RGB.
         """
+        
         t = t.to(self.device).float()        
         orig_shape = t.shape[:-3]   # could be (), (V), or (B,V)
         H, W, C = t.shape[-3:]        
         t = t.reshape(-1, H, W, C)      # [N, H, W, C] # flatten leading dims        
         t = t.permute(0, 3, 1, 2)       # [N, C, H, W]
         with torch.no_grad():
+            print("encoding d type: ", t.dtype)       
             out = self.vae32.decode(t).sample  # [N, 3, H_up, W_up]
         out = (out + 1) / 2
         out = out.clamp(0, 1)
@@ -645,9 +647,15 @@ class LVSMLauncher(Launcher):
                 inference_time =  time.time() - self.test_start                 
 
                 if self.config.model_space == "VAE" and self.config.decode:
-                    ref_imgs = self.decode_tensors(ref_imgs.detach())                    
-                    outputs = self.decode_tensors(outputs.detach())                    
-                    tar_imgs = self.decode_tensors(tar_imgs.detach())                    
+                    with torch.no_grad():                
+                        with torch.autocast(device_type="cuda", enabled=False):
+                            print("ref_imgs pre decode:", ref_imgs.shape, ref_imgs.min().item(), ref_imgs.max().item(), ref_imgs.dtype)       
+                            ref_imgs = self.decode_tensors(ref_imgs.detach())                    
+                            print("ref_imgs post decode:", ref_imgs.shape, ref_imgs.min().item(), ref_imgs.max().item(), ref_imgs.dtype)       
+                            print("outputs pre decode:", outputs.shape, outputs.min().item(), outputs.max().item(), outputs.dtype)       
+                            outputs = self.decode_tensors(outputs.detach())             
+                            print("outputs post decode:", outputs.shape, outputs.min().item(), outputs.max().item(), outputs.dtype)       
+                            tar_imgs = self.decode_tensors(tar_imgs.detach())                       
 
                 if self.config.render_video:
                     assert outputs.shape[0] == 1
@@ -656,15 +664,20 @@ class LVSMLauncher(Launcher):
                     # dump video using imageio
                     print(f"{self.test_dir}/{scene_name}.mp4")
                     frames = (outputs[0].cpu().numpy() * 255).astype(np.uint8)  # convert to uint8
+                    # frames = outputs[0].cpu().numpy()
 
                     # Make a boomerang: forward + backward (exclude last frame to avoid double frame)
                     frames_boomerang = np.concatenate([frames, frames[-2:0:-1]], axis=0)
                     imageio.mimwrite(
                         f"{self.test_dir}/{scene_name}.mp4",
-                        frames_boomerang,
+                        frames_boomerang, 
                         format="ffmpeg",
                         fps=15,
                     )
+                    imageio.imwrite("debug.png", (outputs[0,0].detach().cpu()* 255.0).to(torch.uint8).numpy())                    
+                    imageio.imwrite("debug_refs.png", (ref_imgs[0,0].detach().cpu()* 255.0).to(torch.uint8).numpy())                    
+                    print("VIDEO outputs:", outputs.shape, outputs.min().item(), outputs.max().item(), outputs.dtype)
+
                 else:
                     # dump images.
                     if len(canvas) < 10:
@@ -842,8 +855,9 @@ if __name__ == "__main__":
 
         else:
             # cfg.test_index_fp= f"{cfg.data}/evaluation_index_re10k.json"
-            cfg.test_index_fp= f"assets/eval_index_context8.json"
+            # cfg.test_index_fp= f"assets/eval_index_context8.json"
             # cfg.test_index_fp= "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video.json"
+            cfg.test_index_fp= "/home/teampc/LVSM-VAE/assets/evaluation_index_re10k_video_large_context.json"
     
     launcher = LVSMLauncher(cfg)
     launcher.run()

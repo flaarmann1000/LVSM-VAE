@@ -17,6 +17,8 @@ from torch import Tensor
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 import wandb
+import torch.distributed as dist
+
 
 
 def set_random_seed(seed):
@@ -507,7 +509,9 @@ class Launcher:
         _ = self.test_iteration(init_step, state)
 
         # Exit.
-        torch.distributed.destroy_process_group()
+        # torch.distributed.destroy_process_group()
+        if dist.is_available() and dist.is_initialized():
+            dist.destroy_process_group()
 
     def print_on_master(self, msg: str) -> None:
         if self.world_rank == 0:

@@ -16,9 +16,8 @@ We propose **LVSM-VAE**, a latent-space extension of LVSM that performs novel vi
 
 ## Dataset
 
-1. Download the **RealEstate10KSubset** from  
-   https://drive.google.com/drive/folders/1joiezNCyQK2BvWMnfwHJpm2V77c7iYGe  
-   and place it in a folder called `data`.
+1. Download the **RealEstate10K** in the PixelSplat (.torch) from  
+   http://schadenfreude.csail.mit.edu:8000/  
 
 2. Convert the dataset to the PRoPE/LVSM format by running:
    - `src/data/utils/gen_transforms.py`
@@ -51,6 +50,7 @@ Among others, you can choose:
 - `ray_encoding`: `PLUCKER`, `CAMRAY`, `NONE`, or `RAYMAP`
 - `pos_enc`: `PROPE`, `GTA`, or `NONE`
 
+Before starting your training, you have to set you path to the corresponding eval file in `main.py``
 You can start a training run with:
 
 ```bash
