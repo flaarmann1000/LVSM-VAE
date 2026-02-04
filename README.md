@@ -24,11 +24,15 @@ We propose **LVSM-VAE**, a latent-space extension of LVSM that performs novel vi
    - `src/data/utils/data_preprocess.py`
 
 3. Convert the data to the VAE latent format using:
-   - `src/data/utils/VAE_convert.py`  
+   - `src/data/utils/VAE_convert.py` to create individual scene folders and png images
+   - or `src/data/utils/VAE_convert.py` to create a batch of torch files.
+
    By default, this generates the `/train` split. Adjust the scripts accordingly to process `/test`.
 
 4. Create a small sub-scene dataset for overfitting experiments:
-   - `src/data/create_overfit.py`  
+   - `src/data/create_overfit.py` resp. `src/data/create_overfit_torch.py`
+   - run `build_eval_index.json` to create an evaluation.json for the individual subset
+   
    This produces datasets for both pixel space and latent space.
 
 ---
@@ -49,6 +53,8 @@ Among others, you can choose:
 - `model_space`: `PX` or `VAE`
 - `ray_encoding`: `PLUCKER`, `CAMRAY`, `NONE`, or `RAYMAP`
 - `pos_enc`: `PROPE`, `GTA`, or `NONE`
+- `from_torch` to specify using the torch dataset
+- `patch_size` to adjust patch size / token
 
 Before starting your training, you have to set you path to the corresponding eval file in `main.py``
 You can start a training run with:
